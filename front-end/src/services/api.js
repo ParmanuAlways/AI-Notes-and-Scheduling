@@ -163,6 +163,8 @@ export const getNotesFor   = (entityType, id) =>
 export const updateNote    = (id, data) => req("PUT", `/notes/${id}`, data);
 export const deleteNote    = (id) => req("DELETE", `/notes/${id}`);
 export const scheduleNote  = (id) => req("POST", `/notes/${id}/schedule`);
+// AI auto-summary + tags for a note (local LLM). Returns { summary, tags }.
+export const summarizeNote = (id) => req("POST", `/notes/${id}/summarize`);
 
 // FR-39 — note version history
 export const getNoteVersions = (id) =>

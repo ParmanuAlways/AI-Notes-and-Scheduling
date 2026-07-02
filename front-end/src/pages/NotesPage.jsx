@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { getNotes, getNote, createNote, updateNote, deleteNote, getNoteVersions, getNoteVersion } from "../services/api";
+import { getNotes, getNote, createNote, updateNote, deleteNote, getNoteVersions, getNoteVersion, summarizeNote } from "../services/api";
 import { fmtDate, fmtDateTime } from "../components/DateInput";
 import RelatedItems from "../components/RelatedItems";
 
@@ -17,6 +17,7 @@ export default function NotesPage() {
   const [msg, setMsg]               = useState("");
   const [creating, setCreating]     = useState(false);
   const [newTitle, setNewTitle]     = useState("");
+  const [summarizing, setSummarizing] = useState(false);
 
   // FR-39 — version history
   const [versions, setVersions]         = useState(null); // array or null (modal closed)
@@ -55,11 +56,24 @@ export default function NotesPage() {
       });
       setMsg("Saved.");
       loadList();
+      // Refresh the AI summary + tags in the background (best-effort, offline-safe).
+      refreshSummary(selected.note_id);
     } catch (e) {
       setMsg(`Error: ${e.message}`);
     } finally {
       setSaving(false);
     }
+  }
+
+  function refreshSummary(id) {
+    setSummarizing(true);
+    summarizeNote(id)
+      .then((r) => {
+        setSelected((s) => (s && s.note_id === id ? { ...s, summary: r.summary, tags: r.tags } : s));
+        loadList();
+      })
+      .catch(() => {})
+      .finally(() => setSummarizing(false));
   }
 
   async function handleCreate() {
@@ -204,7 +218,7 @@ export default function NotesPage() {
                   <p style={{ margin: "3px 0 0" }}>
                     <span style={{
                       background: n.linked_entity_type === "event" ? "var(--accent-soft)" : "var(--ok-soft)",
-                      color: n.linked_entity_type === "event" ? "#2563eb" : "#16a34a",
+                      color: n.linked_entity_type === "event" ? "var(--accent)" : "var(--ok)",
                       padding: "1px 8px", borderRadius: "99px", fontWeight: 600, fontSize: "10px",
                     }}
                     title={n.linked_entity_title || ""}>
@@ -212,6 +226,21 @@ export default function NotesPage() {
                       {n.linked_entity_title ? `: ${n.linked_entity_title}` : ""}
                     </span>
                   </p>
+                )}
+                {n.summary && (
+                  <p style={{ margin: "4px 0 0", color: "var(--muted)", fontSize: "11px", fontStyle: "italic",
+                    display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                    {n.summary}
+                  </p>
+                )}
+                {n.tags?.length > 0 && (
+                  <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 4 }}>
+                    {n.tags.map((t) => (
+                      <span key={t} style={{ background: "var(--accent-soft)", color: "var(--accent)", fontSize: "10px", fontWeight: 600, padding: "1px 7px", borderRadius: 99 }}>
+                        #{t}
+                      </span>
+                    ))}
+                  </div>
                 )}
               </div>
               <button
@@ -259,6 +288,11 @@ export default function NotesPage() {
                   }}>
                   {saving ? "Saving…" : "Save"}
                 </button>
+                <button onClick={() => refreshSummary(selected.note_id)} disabled={summarizing}
+                  title="Generate an AI summary + tags (local)"
+                  style={{ background: "var(--surface-2)", color: "var(--text-2)", border: "1px solid var(--border-2)", padding: "8px 14px", borderRadius: "8px", cursor: "pointer" }}>
+                  {summarizing ? "Summarizing…" : "✨ Summarize"}
+                </button>
                 <button onClick={openHistory}
                   style={{ background: "var(--surface-2)", color: "var(--text-2)", border: "1px solid var(--surface-2)", padding: "8px 14px", borderRadius: "8px", cursor: "pointer" }}>
                   History
@@ -278,6 +312,25 @@ export default function NotesPage() {
                 {CLASSIFICATIONS.map((c) => <option key={c}>{c}</option>)}
               </select>
             </div>
+
+            {/* AI summary + tags */}
+            {(selected.summary || (selected.tags && selected.tags.length > 0)) && (
+              <div style={{ background: "var(--bg)", border: "1px solid var(--border)", borderRadius: 10, padding: "12px 14px", marginBottom: 14 }}>
+                {selected.summary && (
+                  <p style={{ margin: 0, fontSize: 14, color: "var(--text-2)" }}>
+                    <span style={{ color: "var(--accent)", fontWeight: 700 }}>Summary · </span>
+                    {selected.summary}
+                  </p>
+                )}
+                {selected.tags?.length > 0 && (
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: selected.summary ? 8 : 0 }}>
+                    {selected.tags.map((t) => (
+                      <span key={t} style={{ background: "var(--accent-soft)", color: "var(--accent)", fontSize: 12, fontWeight: 600, padding: "2px 10px", borderRadius: 99 }}>#{t}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {msg && (
               <p style={{ color: msg.startsWith("Error") ? "var(--danger)" : "var(--ok)", fontSize: "13px", marginBottom: "12px" }}>

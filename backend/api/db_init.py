@@ -277,6 +277,11 @@ ALTER TABLE notes ADD COLUMN IF NOT EXISTS linked_entity_type TEXT
 ALTER TABLE notes ADD COLUMN IF NOT EXISTS linked_entity_id INT;
 CREATE INDEX IF NOT EXISTS idx_notes_linked_entity
     ON notes(linked_entity_type, linked_entity_id);
+
+-- AI auto-summary + tags (local LLM, air-gapped). Best-effort and nullable:
+-- populated on demand, never required, so note-taking works with the LLM offline.
+ALTER TABLE notes ADD COLUMN IF NOT EXISTS ai_summary TEXT;
+ALTER TABLE notes ADD COLUMN IF NOT EXISTS ai_tags    TEXT;   -- comma-separated
 """
 
 
