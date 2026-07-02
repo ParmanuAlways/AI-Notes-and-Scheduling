@@ -27,7 +27,7 @@ export default function GraphPage() {
   const [view, setView] = useState({ x: 0, y: 0, k: 1 });
   const [hover, setHover] = useState(null);
   const [sel, setSel] = useState(null);
-  const [filters, setFilters] = useState({ document: true, note: true, event: true, task: true, refOnly: false });
+  const [filters, setFilters] = useState({ document: true, note: true, event: true, task: true, refOnly: false, labels: true });
 
   const nodesRef = useRef([]);
   const edgesRef = useRef([]);
@@ -207,6 +207,9 @@ export default function GraphPage() {
         <label style={cbStyle(filters.refOnly)} onClick={() => setFilters((f) => ({ ...f, refOnly: !f.refOnly }))}>
           {filters.refOnly ? "☑" : "☐"} Reference links only
         </label>
+        <label style={cbStyle(filters.labels)} onClick={() => setFilters((f) => ({ ...f, labels: !f.labels }))}>
+          {filters.labels ? "☑" : "☐"} Labels
+        </label>
         <button onClick={() => setView({ x: 0, y: 0, k: 1 })}
           style={{ marginLeft: "auto", ...cbStyle(true), cursor: "pointer" }}>Reset view</button>
       </div>
@@ -262,9 +265,12 @@ export default function GraphPage() {
                   onClick={(e) => { e.stopPropagation(); openNode(n); }}>
                   <circle cx={n.x} cy={n.y} r={r} fill={m.color}
                     stroke="var(--surface)" strokeWidth="2.5" />
-                  {(n.id === active || view.k > 1.1) && (
+                  {((filters.labels && nodes.length <= 60) || n.id === active || view.k > 1.1) && (
                     <text x={n.x} y={n.y + r + 13} textAnchor="middle" fontSize="12"
-                      fill="var(--text)" style={{ pointerEvents: "none" }}>
+                      fill="var(--text)" stroke="var(--surface)" strokeWidth="3.5"
+                      paintOrder="stroke" strokeLinejoin="round"
+                      fontWeight={n.id === active ? 700 : 500}
+                      style={{ pointerEvents: "none" }}>
                       {n.label.length > 22 ? n.label.slice(0, 21) + "…" : n.label}
                     </text>
                   )}
