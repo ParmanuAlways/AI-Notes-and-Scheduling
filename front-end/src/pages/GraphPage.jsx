@@ -7,7 +7,7 @@
  */
 import { useEffect, useRef, useReducer, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { getGraph, documentDownloadUrl } from "../services/api";
+import { getGraph, getPreview, documentDownloadUrl } from "../services/api";
 
 const KIND = {
   document: { color: "#D97757", icon: "📄", label: "Letter" },
@@ -18,6 +18,9 @@ const KIND = {
 const REF_RELATIONS = new Set(["same reference", "same series"]);
 const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const fmtTick = (ms) => { const d = new Date(ms); return `${d.getDate()} ${MON[d.getMonth()]} ${String(d.getFullYear()).slice(2)}`; };
+const FIELD_LABEL = { subject: "Subject", venue: "Venue", time: "Time", event_date: "Date", reply_by: "Reply by", deadline: "Deadline", date: "Date", due: "Due", status: "Status", priority: "Priority" };
+const DATE_FIELDS = new Set(["event_date", "reply_by", "deadline", "date", "due"]);
+const prettyDate = (iso) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso)); return m ? `${m[3]} ${MON[+m[2] - 1]} ${m[1]}` : String(iso); };
 
 const W = 1600, H = 1000;   // simulation coordinate space
 
@@ -29,6 +32,7 @@ export default function GraphPage() {
   const [view, setView] = useState({ x: 0, y: 0, k: 1 });
   const [hover, setHover] = useState(null);
   const [sel, setSel] = useState(null);
+  const [preview, setPreview] = useState(null); // { kind, id, loading, data, expanded }
   const [layout, setLayout] = useState("web"); // "web" | "timeline"
   const [range, setRange] = useState({ from: "", to: "" }); // timeline focus window
   const [filters, setFilters] = useState({ document: true, note: true, event: true, task: true, refOnly: false, labels: true });
@@ -196,8 +200,18 @@ export default function GraphPage() {
     setView((v) => ({ ...v, k: Math.min(3, Math.max(0.3, v.k * factor)) }));
   }
 
-  function openNode(nd) {
+  // Click a node → peek: summary + key fields, expandable to the full letter.
+  function peek(nd) {
     const id = nd.id.split("-")[1];
+    setSel(nd.id);
+    setPreview({ kind: nd.kind, id, loading: true, data: null, expanded: false });
+    getPreview(nd.kind, id)
+      .then((d) => setPreview((p) => (p && p.id === id && p.kind === nd.kind ? { ...p, loading: false, data: d } : p)))
+      .catch(() => setPreview((p) => (p ? { ...p, loading: false, data: null } : p)));
+  }
+
+  function openNode(nd) {
+    const id = String(nd.id).split("-")[1];
     if (nd.kind === "document") window.open(documentDownloadUrl(id), "_blank");
     else if (nd.kind === "note") navigate("/notes");
     else if (nd.kind === "event") navigate("/calendar");
@@ -290,7 +304,7 @@ export default function GraphPage() {
           style={{ marginLeft: "auto", ...cbStyle(true), cursor: "pointer" }}>Reset view</button>
       </div>
 
-      <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius)", boxShadow: "var(--shadow)", overflow: "hidden" }}>
+      <div style={{ position: "relative", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius)", boxShadow: "var(--shadow)", overflow: "hidden" }}>
         <svg
           ref={svgRef}
           viewBox={`0 0 ${W} ${H}`}
@@ -377,7 +391,7 @@ export default function GraphPage() {
                   onPointerDown={(e) => onNodeDown(e, n.id)}
                   onMouseEnter={() => setHover(n.id)}
                   onMouseLeave={() => setHover(null)}
-                  onClick={(e) => { e.stopPropagation(); openNode(n); }}>
+                  onClick={(e) => { e.stopPropagation(); peek(n); }}>
                   <circle cx={n.x} cy={n.y} r={r} fill={m.color}
                     stroke="var(--surface)" strokeWidth="2.5" />
                   {((filters.labels && nodes.length <= 60) || n.id === active || view.k > 1.1) && (
@@ -394,6 +408,76 @@ export default function GraphPage() {
             })}
           </g>
         </svg>
+
+        {/* click-to-peek preview panel */}
+        {preview && (
+          <div style={{
+            position: "absolute", top: 0, right: 0, bottom: 0, width: 380, maxWidth: "92%",
+            background: "var(--surface)", borderLeft: "1px solid var(--border)",
+            boxShadow: "-12px 0 32px rgba(0,0,0,0.08)", display: "flex", flexDirection: "column", zIndex: 6,
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 16px", borderBottom: "1px solid var(--border)" }}>
+              <span style={{ fontSize: 18 }}>{KIND[preview.kind]?.icon}</span>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ fontSize: 15, fontWeight: 650, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {preview.data?.title || (preview.loading ? "Loading…" : "Preview")}
+                </div>
+                <div style={{ fontSize: 12, color: "var(--muted)" }}>
+                  {KIND[preview.kind]?.label}{preview.data?.ref_number ? ` · ${preview.data.ref_number}` : ""}
+                </div>
+              </div>
+              <button onClick={() => setPreview(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", fontSize: 20 }}>×</button>
+            </div>
+
+            <div style={{ padding: "14px 16px", overflowY: "auto", flex: 1 }}>
+              {preview.loading ? <p style={{ color: "var(--muted)" }}>Loading…</p>
+                : !preview.data ? <p style={{ color: "var(--muted)" }}>Preview unavailable.</p>
+                : <>
+                    {preview.data.summary && (
+                      <p style={{ margin: "0 0 12px", fontSize: 14.5, lineHeight: 1.55 }}>
+                        <span style={{ color: "var(--accent)", fontWeight: 700 }}>Summary · </span>{preview.data.summary}
+                      </p>
+                    )}
+                    {Object.keys(preview.data.fields || {}).length > 0 && (
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
+                        {Object.entries(preview.data.fields).map(([k, v]) => (
+                          <span key={k} style={{ background: "var(--surface-2)", color: "var(--text-2)", fontSize: 12.5, padding: "3px 10px", borderRadius: 8 }}>
+                            {FIELD_LABEL[k] || k}: {DATE_FIELDS.has(k) ? prettyDate(v) : v}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {preview.data.body ? (
+                      <>
+                        <button onClick={() => setPreview((p) => ({ ...p, expanded: !p.expanded }))}
+                          style={{ background: "var(--accent-soft)", color: "var(--accent)", border: "none", padding: "7px 14px", borderRadius: 8, cursor: "pointer", fontWeight: 600, fontSize: 13.5, marginBottom: 10 }}>
+                          {preview.expanded ? "▴ Collapse" : "▾ Expand full letter"}
+                        </button>
+                        {preview.expanded && (
+                          <pre style={{
+                            whiteSpace: "pre-wrap", wordBreak: "break-word",
+                            fontFamily: preview.kind === "note" ? "monospace" : "Georgia, serif",
+                            fontSize: 14, lineHeight: 1.6, background: "var(--bg)", border: "1px solid var(--border)",
+                            borderRadius: 10, padding: 14, margin: 0, maxHeight: "42vh", overflowY: "auto",
+                          }}>{preview.data.body}</pre>
+                        )}
+                      </>
+                    ) : (!preview.data.summary && <p style={{ color: "var(--muted)", fontSize: 13.5 }}>No text to preview.</p>)}
+                  </>}
+            </div>
+
+            {preview.data && (
+              <div style={{ display: "flex", gap: 8, padding: "12px 16px", borderTop: "1px solid var(--border)" }}>
+                {preview.kind === "document" && (
+                  <a href={documentDownloadUrl(preview.id)} target="_blank" rel="noreferrer"
+                    style={{ ...cbStyle(true), textDecoration: "none", cursor: "pointer" }}>Open original</a>
+                )}
+                <button onClick={() => { const nd = nodesRef.current.find((n) => n.id === `${preview.kind}-${preview.id}`); if (nd) openNode(nd); }}
+                  style={{ ...cbStyle(true), cursor: "pointer" }}>Go to {KIND[preview.kind]?.label}</button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* legend for edge meaning */}

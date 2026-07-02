@@ -110,6 +110,8 @@ export const getRegister = () =>
 export const parseCapture = (text) => req("POST", "/tasks/parse", { text });
 // Knowledge graph: whole-corpus nodes + labeled edges
 export const getGraph = () => req("GET", "/graph");
+// Item preview (summary + key fields + full body) for the click-to-peek panel
+export const getPreview = (kind, id) => req("GET", `/preview/${kind}/${id}`);
 
 // FR-27 — open the original document (returns a URL for <a>/<img>)
 export const documentDownloadUrl = (id) => `${BASE}/documents/${id}/download`;
