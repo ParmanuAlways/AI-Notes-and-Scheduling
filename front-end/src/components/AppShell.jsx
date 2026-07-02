@@ -1,9 +1,8 @@
 import Sidebar from "./Sidebar";
-import BackgroundBlobs from "./BackgroundBlobs";
+import Topbar from "./Topbar";
 import NotificationManager from "./NotificationManager";
 import BackendStatus from "./BackendStatus";
 import UserMenu from "./UserMenu";
-import ThemeControls from "./ThemeControls";
 
 function AppShell({ children, user }) {
   return (
@@ -16,37 +15,15 @@ function AppShell({ children, user }) {
         position: "relative",
       }}
     >
-      <BackgroundBlobs />
       <NotificationManager />
       <BackendStatus />
       <UserMenu user={user} />
 
-      {/* Text-size + light/dark controls. Sits left of the auth UserMenu when
-          it's present (auth mode), otherwise tucks into the top-right corner. */}
-      <div style={{ position: "fixed", top: 16, right: user ? 240 : 20, zIndex: 60 }}>
-        <ThemeControls />
-      </div>
-
       <Sidebar />
 
-      <main
-        style={{
-          flex: 1,
-          padding: "40px",
-          overflowY: "auto",
-          position: "relative",
-          zIndex: 1,
-          scrollBehavior: "smooth",
-        }}
-      >
-        <div
-          style={{
-            maxWidth: "1600px",
-            margin: "0 auto",
-          }}
-        >
-          {children}
-        </div>
+      <main style={{ flex: 1, minWidth: 0, position: "relative", scrollBehavior: "smooth" }}>
+        <Topbar user={user} />
+        <div style={{ padding: "34px 40px" }}>{children}</div>
       </main>
     </div>
   );

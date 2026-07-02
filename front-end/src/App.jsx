@@ -12,6 +12,7 @@ import ErrorBoundary    from "./components/ErrorBoundary";
 import ReminderNotifier from "./components/ReminderNotifier";
 
 import DashboardPage    from "./pages/DashboardPage";
+import InboxPage        from "./pages/InboxPage";
 import UploadPage       from "./pages/UploadPage";
 import CalendarPage     from "./pages/CalendarPage";
 import TasksPage        from "./pages/TasksPage";
@@ -43,6 +44,7 @@ function AnimatedRoutes() {
         <Routes location={location}>
           <Route path="/"          element={<ErrorBoundary><DashboardPage /></ErrorBoundary>} />
           <Route path="/dashboard" element={<ErrorBoundary><DashboardPage /></ErrorBoundary>} />
+          <Route path="/inbox"     element={<ErrorBoundary><InboxPage /></ErrorBoundary>} />
           <Route path="/upload"    element={<ErrorBoundary><UploadPage /></ErrorBoundary>} />
           <Route path="/calendar"  element={<ErrorBoundary><CalendarPage /></ErrorBoundary>} />
           <Route path="/tasks"     element={<ErrorBoundary><TasksPage /></ErrorBoundary>} />
