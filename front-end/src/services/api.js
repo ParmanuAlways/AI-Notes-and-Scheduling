@@ -43,6 +43,9 @@ export const getMe         = () => req("GET", "/auth/me");
 // ── Dashboard ─────────────────────────────────────────────────
 export const getDashboard = () => req("GET", "/dashboard");
 
+// 'Needs attention' digest — overdue/soon/replies + an AI briefing line.
+export const getAttention = () => req("GET", "/attention");
+
 // ── Events ────────────────────────────────────────────────────
 export const getTodayEvents = () =>
   req("GET", "/events/today").then((r) => r.events || []);

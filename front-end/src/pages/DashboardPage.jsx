@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getDashboard, getAuditLog, checkServices } from "../services/api";
+import { AttentionPanel } from "../components/NeedsAttention";
 
 const QUICK_ACTIONS = [
   { label: "Upload document", icon: "📄", to: "/upload" },
@@ -116,6 +117,9 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
+
+      {/* Needs attention — overdue reconciliation + slipping items */}
+      <AttentionPanel />
 
       {/* Stat row */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 18, marginBottom: 30 }}>

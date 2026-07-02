@@ -24,6 +24,7 @@ from api.routes import (
     dashboard, audit, notes,
     trash, timeline, ask, backup,
     system, reminders, links, auth,
+    attention,
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -81,6 +82,7 @@ app.include_router(system.router)
 app.include_router(reminders.router)
 app.include_router(links.router)
 app.include_router(auth.router)
+app.include_router(attention.router)
 
 
 # ── SYSTEM ENDPOINTS ──────────────────────────────────────────

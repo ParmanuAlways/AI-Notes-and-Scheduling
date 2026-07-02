@@ -3,6 +3,7 @@ import Topbar from "./Topbar";
 import NotificationManager from "./NotificationManager";
 import BackendStatus from "./BackendStatus";
 import UserMenu from "./UserMenu";
+import { AttentionPopup } from "./NeedsAttention";
 
 function AppShell({ children, user }) {
   return (
@@ -18,6 +19,8 @@ function AppShell({ children, user }) {
       <NotificationManager />
       <BackendStatus />
       <UserMenu user={user} />
+      <AttentionPopup />
+
 
       <Sidebar />
 
