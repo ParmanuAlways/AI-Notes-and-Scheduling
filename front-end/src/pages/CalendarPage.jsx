@@ -290,7 +290,7 @@ export default function CalendarPage() {
             <span style={{ width: "10px", height: "10px", borderRadius: "3px", background: "var(--accent)" }} /> Events
           </span>
           <span style={{ display: "flex", alignItems: "center", gap: "5px", fontSize: "12px", color: "var(--muted)" }}>
-            <span style={{ width: "10px", height: "10px", borderRadius: "3px", background: "var(--accent)" }} /> Tasks
+            <span style={{ width: "10px", height: "10px", borderRadius: "3px", background: "var(--ok)" }} /> Tasks
           </span>
         </div>
 
@@ -304,7 +304,7 @@ export default function CalendarPage() {
               fontWeight: 600, fontSize: "14px",
             }}
           >
-            + Add ▾
+            + New ▾
           </button>
           {showAddMenu && (
             <div style={{
@@ -317,13 +317,13 @@ export default function CalendarPage() {
                 onClick={() => { setShowAddMenu(false); setShowTaskForm(false); setShowForm(true); setMsg(""); }}
                 style={{ display: "block", width: "100%", textAlign: "left", padding: "11px 16px", border: "none", background: "transparent", cursor: "pointer", fontSize: "14px", color: "var(--accent)", fontWeight: 600 }}
               >
-                📅 New Event
+                📅 New event
               </button>
               <button
                 onClick={() => { setShowAddMenu(false); setShowForm(false); setShowTaskForm(true); setTaskMsg(""); }}
                 style={{ display: "block", width: "100%", textAlign: "left", padding: "11px 16px", border: "none", borderTop: "1px solid var(--border)", background: "transparent", cursor: "pointer", fontSize: "14px", color: "var(--ok)", fontWeight: 600 }}
               >
-                📋 New Task
+                📋 New task
               </button>
             </div>
           )}
@@ -615,7 +615,7 @@ export default function CalendarPage() {
                 cursor: "pointer", fontWeight: 600, fontSize: "14px",
               }}
             >
-              + Add Event on this Day
+              + New event on this day
             </button>
           </motion.div>
         )}

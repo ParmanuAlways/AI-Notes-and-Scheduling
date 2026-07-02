@@ -17,6 +17,7 @@ import {
 import { fmtDate, fmtDateTime } from "../components/DateInput";
 import { useToast } from "../components/ToastProvider";
 import Connections from "../components/Connections";
+import AiStatusBadge from "../components/AiStatusBadge";
 
 const csvCell = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
 const esc = (s) => String(s ?? "").replace(/[<>&]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c]));
@@ -205,19 +206,7 @@ export default function UploadPage() {
 
       {/* AI status + review banner */}
       <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center", marginBottom: 22 }}>
-        {aiStatus != null && (
-          <span
-            style={{
-              display: "inline-flex", alignItems: "center", gap: 8,
-              background: aiStatus === "ready" ? "var(--ok-soft)" : "var(--warn-soft)",
-              color: aiStatus === "ready" ? "var(--ok)" : "var(--warn)",
-              padding: "8px 14px", borderRadius: 99, fontSize: 14, fontWeight: 600,
-            }}
-          >
-            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "currentColor" }} />
-            {aiStatus === "ready" ? "AI extraction is on" : aiStatus == null ? "Checking AI…" : "AI extraction is off"}
-          </span>
-        )}
+        <AiStatusBadge online={aiStatus == null ? null : aiStatus === "ready"} />
         {reviewCount > 0 && (
           <Link
             to="/inbox"

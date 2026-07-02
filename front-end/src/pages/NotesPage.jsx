@@ -160,15 +160,9 @@ export default function NotesPage() {
 
   return (
     <>
-      <div style={{ marginBottom: "24px" }}>
-        <p style={{ color: "var(--accent)", letterSpacing: "2px", textTransform: "uppercase", fontSize: "14px", marginBottom: "8px" }}>
-          Notes
-        </p>
-        <h1 style={{ margin: 0, fontSize: "42px" }}>Notes</h1>
-        <p style={{ color: "var(--muted)", marginTop: "10px" }}>
-          Capture quick notes. Every edit is stored as Markdown on the server.
-        </p>
-      </div>
+      <p style={{ color: "var(--muted)", fontSize: 15.5, margin: "0 0 20px" }}>
+        Capture quick notes. Every edit is stored as Markdown on the server.
+      </p>
 
       <div style={{ display: "grid", gridTemplateColumns: "280px 1fr", gap: "20px", alignItems: "start" }}>
         {/* Left — note list */}
@@ -183,7 +177,7 @@ export default function NotesPage() {
                 fontWeight: 600, fontSize: "13px",
               }}
             >
-              + New
+              + New note
             </button>
           </div>
 
@@ -216,7 +210,7 @@ export default function NotesPage() {
           )}
 
           {notes.length === 0 && !creating && (
-            <p style={{ color: "var(--muted)", fontSize: "13px" }}>No notes yet. Click + New.</p>
+            <p style={{ color: "var(--muted)", fontSize: "13px" }}>No notes yet. Click + New note.</p>
           )}
 
           {notes.map((n) => (
@@ -434,7 +428,7 @@ export default function NotesPage() {
             ) : (
               <>
                 <p style={{ color: "var(--muted)", fontSize: "18px" }}>Select a note to view or edit</p>
-                <p style={{ color: "var(--muted)", fontSize: "14px" }}>or click + New to create one</p>
+                <p style={{ color: "var(--muted)", fontSize: "14px" }}>or click + New note to create one</p>
               </>
             )}
           </div>

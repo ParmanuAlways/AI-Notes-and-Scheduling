@@ -65,16 +65,10 @@ export default function TimelinePage() {
 
   return (
     <>
-      <div style={{ marginBottom: "24px" }}>
-        <p style={{ color: "var(--accent)", letterSpacing: "2px", textTransform: "uppercase", fontSize: "14px", marginBottom: "8px" }}>
-          Unified Timeline
-        </p>
-        <h1 style={{ margin: 0, fontSize: "42px" }}>Timeline</h1>
-        <p style={{ color: "var(--muted)", marginTop: "10px" }}>
-          Events, tasks and notes in one chronological view. Repeating events are
-          shown once. Click any item to open its source.
-        </p>
-      </div>
+      <p style={{ color: "var(--muted)", fontSize: 15.5, margin: "0 0 20px" }}>
+        Events, tasks and notes in one chronological view. Repeating events are
+        shown once. Click any item to open its source.
+      </p>
 
       {/* Filters with counts */}
       <div style={{ display: "flex", gap: "8px", marginBottom: "28px", flexWrap: "wrap" }}>

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getDashboard, getAuditLog, checkServices } from "../services/api";
 import { AttentionPanel } from "../components/NeedsAttention";
+import AiStatusBadge from "../components/AiStatusBadge";
 
 const QUICK_ACTIONS = [
   { label: "Upload document", icon: "📄", to: "/upload" },
@@ -103,19 +104,7 @@ export default function DashboardPage() {
         <p style={{ color: "var(--muted)", fontSize: 15.5, margin: "6px 0 0" }}>
           {error ? `Could not load dashboard — ${error}` : "Here's what needs you today."}
         </p>
-        {ai != null && (
-          <div
-            style={{
-              display: "inline-flex", alignItems: "center", gap: 8, marginTop: 14,
-              background: ai ? "var(--ok-soft)" : "var(--warn-soft)",
-              color: ai ? "var(--ok)" : "var(--warn)",
-              padding: "6px 14px", borderRadius: 99, fontSize: 13.5, fontWeight: 600,
-            }}
-          >
-            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "currentColor" }} />
-            {ai ? "AI extraction online" : "AI offline — manual entry still works (degraded mode)"}
-          </div>
-        )}
+        <AiStatusBadge online={ai} style={{ marginTop: 14 }} />
       </div>
 
       {/* Needs attention — overdue reconciliation + slipping items */}
