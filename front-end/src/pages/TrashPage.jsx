@@ -4,10 +4,10 @@ import { getTrash, restoreItem, purgeItem } from "../services/api";
 import { fmtDate } from "../components/DateInput";
 
 const SECTIONS = [
-  { key: "events",    type: "event",    label: "Events",    color: "#2563eb" },
-  { key: "tasks",     type: "task",     label: "Tasks",     color: "#16a34a" },
-  { key: "documents", type: "document", label: "Documents", color: "#c2410c" },
-  { key: "notes",     type: "note",     label: "Notes",     color: "#7c3aed" },
+  { key: "events",    type: "event",    label: "Events",    color: "var(--accent)" },
+  { key: "tasks",     type: "task",     label: "Tasks",     color: "var(--ok)" },
+  { key: "documents", type: "document", label: "Documents", color: "var(--warn)" },
+  { key: "notes",     type: "note",     label: "Notes",     color: "var(--text-2)" },
 ];
 
 export default function TrashPage() {
@@ -54,21 +54,21 @@ export default function TrashPage() {
   return (
     <>
       <div style={{ marginBottom: "24px" }}>
-        <p style={{ color: "#60a5fa", letterSpacing: "2px", textTransform: "uppercase", fontSize: "14px", marginBottom: "8px" }}>
+        <p style={{ color: "var(--accent)", letterSpacing: "2px", textTransform: "uppercase", fontSize: "14px", marginBottom: "8px" }}>
           Trash
         </p>
         <h1 style={{ margin: 0, fontSize: "42px" }}>Trash</h1>
-        <p style={{ color: "#64748b", marginTop: "10px" }}>
+        <p style={{ color: "var(--muted)", marginTop: "10px" }}>
           Deleted items are kept here and can be restored. They are automatically
           purged after <strong>{purgeDays} days</strong>. Nothing is permanently lost by accident.
         </p>
       </div>
 
-      {loading && <p style={{ color: "#94a3b8" }}>Loading trash…</p>}
+      {loading && <p style={{ color: "var(--muted)" }}>Loading trash…</p>}
 
       {!loading && totalItems === 0 && (
-        <div style={{ background: "white", borderRadius: "20px", padding: "60px", textAlign: "center", boxShadow: "0 10px 30px rgba(0,0,0,0.06)" }}>
-          <p style={{ color: "#94a3b8", fontSize: "18px" }}>Trash is empty.</p>
+        <div style={{ background: "var(--surface)", borderRadius: "20px", padding: "60px", textAlign: "center", boxShadow: "0 10px 30px rgba(0,0,0,0.06)" }}>
+          <p style={{ color: "var(--muted)", fontSize: "18px" }}>Trash is empty.</p>
         </div>
       )}
 
@@ -86,14 +86,14 @@ export default function TrashPage() {
                   key={`${section.type}-${item.id}`}
                   whileHover={{ y: -2 }}
                   style={{
-                    background: "white", borderRadius: "14px",
+                    background: "var(--surface)", borderRadius: "14px",
                     padding: "16px 20px", boxShadow: "0 4px 16px rgba(0,0,0,0.06)",
                     display: "flex", justifyContent: "space-between", alignItems: "center",
                   }}
                 >
                   <div>
                     <strong>{itemLabel(section, item)}</strong>
-                    <p style={{ margin: "4px 0 0", color: "#94a3b8", fontSize: "13px" }}>
+                    <p style={{ margin: "4px 0 0", color: "var(--muted)", fontSize: "13px" }}>
                       {itemSub(section, item)}
                       {item.deleted_at ? ` · deleted ${fmtDate(item.deleted_at)}` : ""}
                     </p>
@@ -101,13 +101,13 @@ export default function TrashPage() {
                   <div style={{ display: "flex", gap: "8px" }}>
                     <button
                       onClick={() => handleRestore(section.type, item.id)}
-                      style={{ background: "#10b981", color: "white", border: "none", padding: "7px 16px", borderRadius: "8px", cursor: "pointer", fontWeight: 600, fontSize: "13px" }}
+                      style={{ background: "var(--accent)", color: "white", border: "none", padding: "7px 16px", borderRadius: "8px", cursor: "pointer", fontWeight: 600, fontSize: "13px" }}
                     >
                       Restore
                     </button>
                     <button
                       onClick={() => handlePurge(section.type, item.id)}
-                      style={{ background: "transparent", color: "#ef4444", border: "1px solid #ef4444", padding: "7px 16px", borderRadius: "8px", cursor: "pointer", fontWeight: 600, fontSize: "13px" }}
+                      style={{ background: "transparent", color: "var(--danger)", border: "1px solid var(--danger)", padding: "7px 16px", borderRadius: "8px", cursor: "pointer", fontWeight: 600, fontSize: "13px" }}
                     >
                       Delete forever
                     </button>

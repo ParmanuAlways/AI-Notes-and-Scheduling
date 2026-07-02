@@ -77,27 +77,27 @@ export default function NotificationManager() {
     <div
       style={{
         position: "fixed", bottom: "20px", right: "20px", zIndex: 1000,
-        background: "white", borderRadius: "14px", padding: "16px 20px",
-        boxShadow: "0 10px 40px rgba(0,0,0,0.15)", maxWidth: "300px",
-        border: "1px solid #e2e8f0",
+        background: "var(--surface)", borderRadius: "14px", padding: "16px 20px",
+        boxShadow: "var(--shadow)", maxWidth: "300px",
+        border: "1px solid var(--border)",
       }}
     >
-      <p style={{ margin: "0 0 10px", fontSize: "14px", color: "#0f172a", fontWeight: 600 }}>
+      <p style={{ margin: "0 0 10px", fontSize: "14px", color: "var(--text)", fontWeight: 600 }}>
         Enable event reminders?
       </p>
-      <p style={{ margin: "0 0 12px", fontSize: "12px", color: "#64748b" }}>
+      <p style={{ margin: "0 0 12px", fontSize: "12px", color: "var(--muted)" }}>
         Get a browser notification before your meetings.
       </p>
       <div style={{ display: "flex", gap: "8px" }}>
         <button
           onClick={() => Notification.requestPermission().then((p) => { setPerm(p); if (p !== "granted") dismiss(); })}
-          style={{ background: "#2563eb", color: "white", border: "none", padding: "7px 16px", borderRadius: "8px", cursor: "pointer", fontWeight: 600, fontSize: "13px" }}
+          style={{ background: "var(--accent)", color: "white", border: "none", padding: "7px 16px", borderRadius: "8px", cursor: "pointer", fontWeight: 600, fontSize: "13px" }}
         >
           Enable
         </button>
         <button
           onClick={dismiss}
-          style={{ background: "transparent", color: "#64748b", border: "1px solid #e2e8f0", padding: "7px 16px", borderRadius: "8px", cursor: "pointer", fontSize: "13px" }}
+          style={{ background: "transparent", color: "var(--text-2)", border: "1px solid var(--border-2)", padding: "7px 16px", borderRadius: "8px", cursor: "pointer", fontSize: "13px" }}
         >
           Don't ask again
         </button>

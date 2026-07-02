@@ -88,50 +88,50 @@ export default function VoicePage() {
   return (
     <>
       <div style={{ marginBottom: "24px" }}>
-        <p style={{ color: "#60a5fa", letterSpacing: "2px", textTransform: "uppercase", fontSize: "14px", marginBottom: "8px" }}>
+        <p style={{ color: "var(--accent)", letterSpacing: "2px", textTransform: "uppercase", fontSize: "14px", marginBottom: "8px" }}>
           Voice note (FR-6)
         </p>
         <h1 style={{ margin: 0, fontSize: "42px" }}>Voice Capture</h1>
-        <p style={{ color: "#64748b", marginTop: "10px" }}>
+        <p style={{ color: "var(--muted)", marginTop: "10px" }}>
           Record or upload a voice note. It's transcribed locally (Whisper), you edit the
           text, then turn it into an event or task.
         </p>
       </div>
 
       {/* Record / upload */}
-      <div style={{ background: "white", borderRadius: "20px", padding: "26px", boxShadow: "0 10px 30px rgba(0,0,0,0.08)", marginBottom: "20px", display: "flex", gap: "16px", alignItems: "center", flexWrap: "wrap" }}>
+      <div style={{ background: "var(--surface)", borderRadius: "20px", padding: "26px", boxShadow: "0 10px 30px rgba(0,0,0,0.08)", marginBottom: "20px", display: "flex", gap: "16px", alignItems: "center", flexWrap: "wrap" }}>
         {!recording ? (
           <button onClick={startRecording} disabled={!!busy}
-            style={{ background: "#ef4444", color: "white", border: "none", padding: "14px 26px", borderRadius: "14px", cursor: "pointer", fontWeight: 700, fontSize: "15px" }}>
+            style={{ background: "var(--danger)", color: "white", border: "none", padding: "14px 26px", borderRadius: "14px", cursor: "pointer", fontWeight: 700, fontSize: "15px" }}>
             ● Record
           </button>
         ) : (
           <button onClick={stopRecording}
-            style={{ background: "#0f172a", color: "white", border: "none", padding: "14px 26px", borderRadius: "14px", cursor: "pointer", fontWeight: 700, fontSize: "15px" }}>
+            style={{ background: "var(--surface-2)", color: "white", border: "none", padding: "14px 26px", borderRadius: "14px", cursor: "pointer", fontWeight: 700, fontSize: "15px" }}>
             ■ Stop &amp; transcribe
           </button>
         )}
-        <span style={{ color: "#94a3b8" }}>or</span>
-        <label style={{ background: "#f1f5f9", color: "#475569", padding: "12px 20px", borderRadius: "12px", cursor: "pointer", fontWeight: 600 }}>
+        <span style={{ color: "var(--muted)" }}>or</span>
+        <label style={{ background: "var(--surface-2)", color: "var(--text-2)", padding: "12px 20px", borderRadius: "12px", cursor: "pointer", fontWeight: 600 }}>
           Upload audio file
           <input type="file" accept=".wav,.mp3,.m4a,.ogg,.webm" style={{ display: "none" }}
             onChange={(e) => e.target.files[0] && sendAudio(e.target.files[0])} />
         </label>
-        {busy && <span style={{ color: "#2563eb", fontWeight: 600 }}>{busy}…</span>}
-        {recording && <span style={{ color: "#ef4444", fontWeight: 600 }}>● recording</span>}
+        {busy && <span style={{ color: "var(--accent)", fontWeight: 600 }}>{busy}…</span>}
+        {recording && <span style={{ color: "var(--danger)", fontWeight: 600 }}>● recording</span>}
       </div>
 
       {msg && <p style={{ color: msg.startsWith("Error") ? "#ef4444" : "#64748b", marginBottom: "16px" }}>{msg}</p>}
 
       {/* Transcript */}
       {(transcript || busy === "transcribing") && (
-        <div style={{ background: "white", borderRadius: "20px", padding: "22px", boxShadow: "0 10px 30px rgba(0,0,0,0.06)", marginBottom: "20px" }}>
+        <div style={{ background: "var(--surface)", borderRadius: "20px", padding: "22px", boxShadow: "0 10px 30px rgba(0,0,0,0.06)", marginBottom: "20px" }}>
           <h3 style={{ marginTop: 0 }}>Transcript (editable)</h3>
           <textarea value={transcript} onChange={(e) => setTranscript(e.target.value)}
             placeholder="Transcription will appear here…"
-            style={{ width: "100%", minHeight: "120px", padding: "14px", borderRadius: "10px", border: "1px solid #e2e8f0", fontSize: "15px", lineHeight: 1.6, boxSizing: "border-box", resize: "vertical" }} />
+            style={{ width: "100%", minHeight: "120px", padding: "14px", borderRadius: "10px", border: "1px solid var(--border)", fontSize: "15px", lineHeight: 1.6, boxSizing: "border-box", resize: "vertical" }} />
           <button onClick={handleExtract} disabled={!transcript || !!busy}
-            style={{ marginTop: "12px", background: "#2563eb", color: "white", border: "none", padding: "10px 22px", borderRadius: "10px", cursor: "pointer", fontWeight: 600 }}>
+            style={{ marginTop: "12px", background: "var(--accent)", color: "white", border: "none", padding: "10px 22px", borderRadius: "10px", cursor: "pointer", fontWeight: 600 }}>
             {busy === "extracting" ? "Extracting…" : "Extract event / task"}
           </button>
         </div>
@@ -140,12 +140,12 @@ export default function VoicePage() {
       {/* Extracted fields */}
       {fields && (
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
-          style={{ background: "white", borderRadius: "20px", padding: "24px", boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}>
+          style={{ background: "var(--surface)", borderRadius: "20px", padding: "24px", boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}>
           <div style={{ display: "flex", gap: "8px", marginBottom: "16px" }}>
             {["event", "task"].map((t) => (
               <button key={t} onClick={() => setFields((f) => ({ ...f, item_type: t }))}
                 style={{ padding: "6px 16px", borderRadius: "8px", border: "none", cursor: "pointer", fontWeight: 600,
-                  background: fields.item_type === t ? "#2563eb" : "#f1f5f9", color: fields.item_type === t ? "white" : "#475569" }}>
+                  background: fields.item_type === t ? "var(--accent)" : "var(--surface-2)", color: fields.item_type === t ? "white" : "var(--text-2)" }}>
                 {t === "event" ? "📅 Event" : "📋 Task"}
               </button>
             ))}
@@ -153,29 +153,29 @@ export default function VoicePage() {
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" }}>
             <div style={{ gridColumn: "1 / -1" }}>
-              <label style={{ fontSize: "12px", color: "#64748b" }}>Title</label>
+              <label style={{ fontSize: "12px", color: "var(--muted)" }}>Title</label>
               <input value={fields.subject} onChange={(e) => setFields((f) => ({ ...f, subject: e.target.value }))}
-                style={{ width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px", boxSizing: "border-box" }} />
+                style={{ width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid var(--border-2)", fontSize: "14px", boxSizing: "border-box" }} />
             </div>
             {fields.item_type === "event" ? (
               <>
-                <div><label style={{ fontSize: "12px", color: "#64748b" }}>Date</label>
+                <div><label style={{ fontSize: "12px", color: "var(--muted)" }}>Date</label>
                   <DateInput value={fields.event_date} onChange={(v) => setFields((f) => ({ ...f, event_date: v }))} /></div>
-                <div><label style={{ fontSize: "12px", color: "#64748b" }}>Time</label>
+                <div><label style={{ fontSize: "12px", color: "var(--muted)" }}>Time</label>
                   <input type="time" value={fields.event_time} onChange={(e) => setFields((f) => ({ ...f, event_time: e.target.value }))}
-                    style={{ width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px", boxSizing: "border-box" }} /></div>
-                <div><label style={{ fontSize: "12px", color: "#64748b" }}>Venue</label>
+                    style={{ width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid var(--border-2)", fontSize: "14px", boxSizing: "border-box" }} /></div>
+                <div><label style={{ fontSize: "12px", color: "var(--muted)" }}>Venue</label>
                   <input value={fields.venue} onChange={(e) => setFields((f) => ({ ...f, venue: e.target.value }))}
-                    style={{ width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px", boxSizing: "border-box" }} /></div>
+                    style={{ width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid var(--border-2)", fontSize: "14px", boxSizing: "border-box" }} /></div>
               </>
             ) : (
-              <div><label style={{ fontSize: "12px", color: "#64748b" }}>Due date</label>
+              <div><label style={{ fontSize: "12px", color: "var(--muted)" }}>Due date</label>
                 <DateInput value={fields.deadline || fields.reply_by} onChange={(v) => setFields((f) => ({ ...f, deadline: v }))} /></div>
             )}
           </div>
 
           <button onClick={handleSave} disabled={!!busy}
-            style={{ marginTop: "18px", background: "#10b981", color: "white", border: "none", padding: "11px 24px", borderRadius: "10px", cursor: "pointer", fontWeight: 600 }}>
+            style={{ marginTop: "18px", background: "var(--accent)", color: "white", border: "none", padding: "11px 24px", borderRadius: "10px", cursor: "pointer", fontWeight: 600 }}>
             {busy === "saving" ? "Saving…" : `Save ${fields.item_type}`}
           </button>
         </motion.div>

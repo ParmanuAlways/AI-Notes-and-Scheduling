@@ -47,17 +47,17 @@ export default function AskPage() {
     <>
       <div style={{ marginBottom: "24px", display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: "12px" }}>
         <div>
-          <p style={{ color: "#60a5fa", letterSpacing: "2px", textTransform: "uppercase", fontSize: "14px", marginBottom: "8px" }}>
+          <p style={{ color: "var(--accent)", letterSpacing: "2px", textTransform: "uppercase", fontSize: "14px", marginBottom: "8px" }}>
             Ask your documents (RAG)
           </p>
           <h1 style={{ margin: 0, fontSize: "42px" }}>Ask AI</h1>
-          <p style={{ color: "#64748b", marginTop: "10px" }}>
+          <p style={{ color: "var(--muted)", marginTop: "10px" }}>
             Ask questions in plain language. Answers come from your own documents and
             notes, with citations — nothing leaves your machine.
           </p>
         </div>
         <button onClick={handleReindex} disabled={indexing}
-          style={{ background: "#f1f5f9", color: "#475569", border: "1px solid #e2e8f0", padding: "10px 18px", borderRadius: "10px", cursor: "pointer", fontWeight: 600 }}>
+          style={{ background: "var(--surface-2)", color: "var(--text-2)", border: "1px solid var(--border)", padding: "10px 18px", borderRadius: "10px", cursor: "pointer", fontWeight: 600 }}>
           {indexing ? "Indexing…" : "Rebuild index"}
         </button>
       </div>
@@ -69,13 +69,13 @@ export default function AskPage() {
       )}
 
       <form onSubmit={handleAsk}
-        style={{ background: "white", borderRadius: "20px", padding: "20px", boxShadow: "0 10px 30px rgba(0,0,0,0.08)", marginBottom: "20px", display: "flex", gap: "12px" }}>
+        style={{ background: "var(--surface)", borderRadius: "20px", padding: "20px", boxShadow: "0 10px 30px rgba(0,0,0,0.08)", marginBottom: "20px", display: "flex", gap: "12px" }}>
         <input
           type="text"
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Ask anything about your documents and notes…"
-          style={{ flex: 1, padding: "16px 18px", borderRadius: "14px", border: "1px solid #cbd5e1", fontSize: "16px", outline: "none" }}
+          style={{ flex: 1, padding: "16px 18px", borderRadius: "14px", border: "1px solid var(--border-2)", fontSize: "16px", outline: "none" }}
         />
         <button type="submit" disabled={loading || !q.trim()}
           style={{ background: loading ? "#64748b" : "#2563eb", color: "white", border: "none", padding: "16px 28px", borderRadius: "14px", cursor: loading ? "not-allowed" : "pointer", fontWeight: 700 }}>
@@ -88,7 +88,7 @@ export default function AskPage() {
         <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", marginBottom: "20px" }}>
           {examples.map((ex) => (
             <button key={ex} onClick={() => { setQ(ex); }}
-              style={{ background: "#eff6ff", color: "#2563eb", border: "none", padding: "8px 16px", borderRadius: "99px", cursor: "pointer", fontSize: "13px" }}>
+              style={{ background: "var(--accent-soft)", color: "var(--accent)", border: "none", padding: "8px 16px", borderRadius: "99px", cursor: "pointer", fontSize: "13px" }}>
               {ex}
             </button>
           ))}
@@ -96,7 +96,7 @@ export default function AskPage() {
       )}
 
       {error && (
-        <div style={{ background: "#fef2f2", color: "#b91c1c", borderRadius: "12px", padding: "16px 18px", marginBottom: "16px" }}>
+        <div style={{ background: "var(--danger-soft)", color: "var(--danger)", borderRadius: "12px", padding: "16px 18px", marginBottom: "16px" }}>
           {error}
           {error.includes("Embedding") && (
             <p style={{ margin: "8px 0 0", fontSize: "13px" }}>
@@ -107,35 +107,35 @@ export default function AskPage() {
       )}
 
       {loading && (
-        <div style={{ background: "white", borderRadius: "20px", padding: "30px", boxShadow: "0 10px 30px rgba(0,0,0,0.06)" }}>
-          <p style={{ color: "#94a3b8" }}>Searching your documents and composing an answer…</p>
+        <div style={{ background: "var(--surface)", borderRadius: "20px", padding: "30px", boxShadow: "0 10px 30px rgba(0,0,0,0.06)" }}>
+          <p style={{ color: "var(--muted)" }}>Searching your documents and composing an answer…</p>
         </div>
       )}
 
       {result && (
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
-          style={{ background: "white", borderRadius: "20px", padding: "26px", boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}>
+          style={{ background: "var(--surface)", borderRadius: "20px", padding: "26px", boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}>
           <h2 style={{ marginTop: 0, marginBottom: "14px", fontSize: "20px" }}>Answer</h2>
-          <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.7, color: "#1e293b", fontSize: "15px" }}>
+          <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.7, color: "var(--text)", fontSize: "15px" }}>
             {result.answer}
           </p>
 
           {result.sources?.length > 0 && (
-            <div style={{ marginTop: "22px", borderTop: "1px solid #f1f5f9", paddingTop: "16px" }}>
-              <h3 style={{ margin: "0 0 12px", fontSize: "14px", color: "#64748b" }}>Sources</h3>
+            <div style={{ marginTop: "22px", borderTop: "1px solid var(--border)", paddingTop: "16px" }}>
+              <h3 style={{ margin: "0 0 12px", fontSize: "14px", color: "var(--muted)" }}>Sources</h3>
               <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                 {result.sources.map((s) => (
                   <div key={`${s.kind}-${s.item_id}`} style={{
                     display: "flex", alignItems: "center", gap: "10px",
-                    background: "#f8fafc", border: "1px solid #e2e8f0",
+                    background: "var(--bg)", border: "1px solid var(--border)",
                     borderRadius: "10px", padding: "10px 14px", fontSize: "14px",
                   }}>
-                    <span style={{ background: "#2563eb", color: "white", borderRadius: "6px", padding: "1px 8px", fontSize: "12px", fontWeight: 700 }}>
+                    <span style={{ background: "var(--accent)", color: "white", borderRadius: "6px", padding: "1px 8px", fontSize: "12px", fontWeight: 700 }}>
                       {s.n}
                     </span>
                     <span>{KIND_ICON[s.kind] || "📄"}</span>
                     <span style={{ flex: 1 }}>{s.title || `${s.kind} ${s.item_id}`}</span>
-                    <span style={{ color: "#94a3b8", fontSize: "12px" }}>match {(s.score * 100).toFixed(0)}%</span>
+                    <span style={{ color: "var(--muted)", fontSize: "12px" }}>match {(s.score * 100).toFixed(0)}%</span>
                   </div>
                 ))}
               </div>
