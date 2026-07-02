@@ -1,12 +1,11 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   getPendingConfirmations,
   getConfirmation,
   getDocuments,
   checkServices,
   processQueue,
-  confirmAllExtractions,
   dismissAllExtractions,
 } from "../services/api";
 import { fmtDate } from "../components/DateInput";
@@ -97,6 +96,7 @@ function ExtractionPreview({ ex }) {
 
 export default function InboxPage() {
   const toast = useToast();
+  const navigate = useNavigate();
   const [pending, setPending] = useState([]);
   const [docs, setDocs] = useState([]);
   const [details, setDetails] = useState({});
@@ -130,24 +130,6 @@ export default function InboxPage() {
         .catch(() => {});
     });
   }, [pending]);
-
-  async function handleAdd(item) {
-    setBusyJob(item.job_id);
-    try {
-      const res = await confirmAllExtractions(item.job_id);
-      const bits = [];
-      if (res.events_added) bits.push(`${res.events_added} event${res.events_added > 1 ? "s" : ""}`);
-      if (res.tasks_added) bits.push(`${res.tasks_added} task${res.tasks_added > 1 ? "s" : ""}`);
-      if (res.total > 0) toast.success(`Added ${bits.join(" + ")} to your calendar.`);
-      else if (res.events_skipped) toast.info(`Already on your calendar — ${res.events_skipped} duplicate(s) skipped.`);
-      else toast.info("Nothing schedulable was found.");
-      load();
-    } catch (e) {
-      toast.error(e.message);
-    } finally {
-      setBusyJob(null);
-    }
-  }
 
   async function handleDismiss(item) {
     setBusyJob(item.job_id);
@@ -243,15 +225,14 @@ export default function InboxPage() {
                     Dismiss
                   </button>
                   <button
-                    onClick={() => handleAdd(item)}
-                    disabled={busyJob === item.job_id}
+                    onClick={() => navigate(`/confirm/${item.job_id}`)}
                     style={{
                       background: "var(--accent)", color: "#fff", border: "none",
-                      padding: "10px 20px", borderRadius: "var(--radius-sm)",
-                      cursor: busyJob === item.job_id ? "wait" : "pointer", fontWeight: 700, fontSize: 15,
+                      padding: "10px 22px", borderRadius: "var(--radius-sm)",
+                      cursor: "pointer", fontWeight: 700, fontSize: 15,
                     }}
                   >
-                    {busyJob === item.job_id ? "Adding…" : "Add to calendar"}
+                    Review →
                   </button>
                 </div>
               </div>
