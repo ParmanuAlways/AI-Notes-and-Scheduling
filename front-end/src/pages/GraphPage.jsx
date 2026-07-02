@@ -30,8 +30,11 @@ export default function GraphPage() {
   const [hover, setHover] = useState(null);
   const [sel, setSel] = useState(null);
   const [layout, setLayout] = useState("web"); // "web" | "timeline"
+  const [range, setRange] = useState({ from: "", to: "" }); // timeline focus window
   const [filters, setFilters] = useState({ document: true, note: true, event: true, task: true, refOnly: false, labels: true });
   const tlRef = useRef(null); // { min, max, padL, padR } for the timeline axis
+  const rangeRef = useRef(range);
+  useEffect(() => { rangeRef.current = range; }, [range]);
 
   const nodesRef = useRef([]);
   const edgesRef = useRef([]);
@@ -63,29 +66,34 @@ export default function GraphPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Apply the chosen layout when the data loads or the layout switches.
+  // Apply the chosen layout when the data loads, the layout switches, or the
+  // timeline focus window changes.
   useEffect(() => {
     if (!data) return;
     if (layout === "timeline") applyTimeline();
     else { setView({ x: 0, y: 0, k: 1 }); heat(1); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [layout, data]);
+  }, [layout, data, range]);
 
-  // Chronological layout: X by date (left→right), Y by type lane.
+  // Chronological layout: X by date (left→right), Y by type lane. Honours the
+  // focus window (range.from / range.to); items outside it are marked _out.
   function applyTimeline() {
     cancelAnimationFrame(rafRef.current); rafRef.current = 0; alphaRef.current = 0;
     const ns = nodesRef.current;
+    const R = rangeRef.current;
     const laneY = { document: H * 0.22, event: H * 0.42, task: H * 0.62, note: H * 0.82 };
     const padL = 190, padR = 90;
     const times = ns.map((n) => (n.date ? Date.parse(n.date) : NaN)).filter((t) => !isNaN(t));
-    const min = times.length ? Math.min(...times) : 0;
-    const max = times.length ? Math.max(...times) : 1;
+    let min = R.from ? Date.parse(R.from) : (times.length ? Math.min(...times) : 0);
+    let max = R.to ? Date.parse(R.to) : (times.length ? Math.max(...times) : 1);
+    if (min > max) { const t = min; min = max; max = t; }
     const span = Math.max(86400000, max - min);
     ["document", "event", "task", "note"].forEach((k) => {
       const lane = ns.filter((n) => n.kind === k);
       lane.sort((a, b) => (Date.parse(a.date || 0) || 0) - (Date.parse(b.date || 0) || 0));
       lane.forEach((n, i) => {
         const t = n.date ? Date.parse(n.date) : NaN;
+        n._out = !isNaN(t) && (t < min || t > max);
         n.x = isNaN(t) ? padL * 0.45 : padL + ((t - min) / span) * (W - padL - padR);
         n.y = laneY[k] + ((i % 3) - 1) * 34;
         n.vx = 0; n.vy = 0;
@@ -199,9 +207,10 @@ export default function GraphPage() {
   if (error) return <div style={{ color: "var(--danger)" }}>Could not load the graph — {error}</div>;
   if (!data) return <div style={{ color: "var(--muted)" }}>Building your graph…</div>;
 
-  // visible set per filters
+  // visible set per filters (+ focus window in timeline mode)
   const showKind = (k) => filters[k];
-  const nodes = nodesRef.current.filter((n) => showKind(n.kind));
+  const baseNodes = nodesRef.current.filter((n) => showKind(n.kind));
+  const nodes = layout === "timeline" ? baseNodes.filter((n) => !n._out) : baseNodes;
   const nodeIds = new Set(nodes.map((n) => n.id));
   const byId = Object.fromEntries(nodes.map((n) => [n.id, n]));
   const edges = edgesRef.current.filter((e) =>
@@ -263,6 +272,20 @@ export default function GraphPage() {
         <label style={cbStyle(filters.labels)} onClick={() => setFilters((f) => ({ ...f, labels: !f.labels }))}>
           {filters.labels ? "☑" : "☐"} Labels
         </label>
+        {layout === "timeline" && (
+          <div style={{ display: "flex", gap: 6, alignItems: "center", marginLeft: 4 }}>
+            <span style={{ fontSize: 13, color: "var(--muted)" }}>Focus</span>
+            <input type="date" value={range.from} onChange={(e) => setRange((r) => ({ ...r, from: e.target.value }))}
+              style={{ padding: "5px 8px", borderRadius: 8, border: "1px solid var(--border-2)", background: "var(--bg)", color: "var(--text)", fontSize: 13 }} />
+            <span style={{ fontSize: 13, color: "var(--muted)" }}>→</span>
+            <input type="date" value={range.to} onChange={(e) => setRange((r) => ({ ...r, to: e.target.value }))}
+              style={{ padding: "5px 8px", borderRadius: 8, border: "1px solid var(--border-2)", background: "var(--bg)", color: "var(--text)", fontSize: 13 }} />
+            {(range.from || range.to) && (
+              <button onClick={() => setRange({ from: "", to: "" })}
+                style={{ ...cbStyle(true), cursor: "pointer", padding: "5px 11px" }}>clear</button>
+            )}
+          </div>
+        )}
         <button onClick={() => setView({ x: 0, y: 0, k: 1 })}
           style={{ marginLeft: "auto", ...cbStyle(true), cursor: "pointer" }}>Reset view</button>
       </div>
@@ -305,6 +328,18 @@ export default function GraphPage() {
                       </g>
                     );
                   })}
+                  {/* Today marker */}
+                  {(() => {
+                    const now = Date.parse(new Date().toISOString().slice(0, 10));
+                    if (now < min || now > max) return null;
+                    const x = padL + ((now - min) / span) * (W - padL - padR);
+                    return (
+                      <g>
+                        <line x1={x} y1={40} x2={x} y2={H - 40} stroke="var(--accent)" strokeWidth="1.6" strokeDasharray="5 4" />
+                        <text x={x} y={30} textAnchor="middle" fontSize="13" fontWeight="700" fill="var(--accent)">Today</text>
+                      </g>
+                    );
+                  })()}
                 </g>
               );
             })()}
