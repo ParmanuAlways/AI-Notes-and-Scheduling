@@ -7,18 +7,20 @@ import {
 import "@schedule-x/theme-default/dist/index.css";
 import { useState, useEffect } from "react";
 import { getEvents, getTasks } from "../services/api";
+import { useTheme } from "../theme/ThemeProvider";
 
-// Two colour-coded "calendars": events (blue) and tasks (green)
+// Two colour-coded "calendars": events (coral, matching the app accent) and
+// tasks (green). schedule-x needs literal hex, so these mirror the token palette.
 const CALENDARS = {
   event: {
     colorName: "event",
-    lightColors: { main: "#2563eb", container: "#dbeafe", onContainer: "#1e3a8a" },
-    darkColors:  { main: "#93c5fd", container: "#1e3a8a", onContainer: "#dbeafe" },
+    lightColors: { main: "#D97757", container: "#F6E9E2", onContainer: "#7a2f16" },
+    darkColors:  { main: "#E08462", container: "#3B322D", onContainer: "#F6E9E2" },
   },
   task: {
     colorName: "task",
-    lightColors: { main: "#16a34a", container: "#dcfce7", onContainer: "#14532d" },
-    darkColors:  { main: "#86efac", container: "#14532d", onContainer: "#dcfce7" },
+    lightColors: { main: "#4F7A52", container: "#E4EFE1", onContainer: "#14532d" },
+    darkColors:  { main: "#7FA97F", container: "#2A342A", onContainer: "#E4EFE1" },
   },
 };
 
@@ -47,12 +49,13 @@ function taskToSX(t) {
   } catch { return null; }
 }
 
-function InnerCalendar({ events, onEventClick, view }) {
+function InnerCalendar({ events, onEventClick, view, isDark }) {
   const calendar = useCalendarApp({
     views       : [createViewMonthGrid(), createViewWeek(), createViewDay()],
     defaultView : view || "month-grid",
     selectedDate: Temporal.Now.plainDateISO("Asia/Kolkata"),   // "today" in IST
     locale      : "en-GB",   // day-first date formatting (DD/MM/YYYY)
+    isDark,                  // schedule-x dark theme, driven by ThemeProvider
     calendars   : CALENDARS,
     events,
     callbacks: {
@@ -77,6 +80,8 @@ function InnerCalendar({ events, onEventClick, view }) {
 }
 
 export default function CalendarContainer({ onCounts, refreshKey, onEventClick, view }) {
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
   const [sxEvents, setSxEvents] = useState([]);
   const [loaded, setLoaded]     = useState(false);
   const [error, setError]       = useState("");
@@ -102,11 +107,11 @@ export default function CalendarContainer({ onCounts, refreshKey, onEventClick, 
   }, [refreshKey]);
 
   if (!loaded) {
-    return <div style={{ padding: "40px", textAlign: "center", color: "#94a3b8" }}>Loading calendar…</div>;
+    return <div style={{ padding: "40px", textAlign: "center", color: "var(--muted)" }}>Loading calendar…</div>;
   }
   if (error) {
     return (
-      <div style={{ padding: "30px", borderRadius: "16px", background: "#fef2f2", border: "1px solid #fecaca", color: "#b91c1c" }}>
+      <div style={{ padding: "30px", borderRadius: "16px", background: "var(--danger-soft)", border: "1px solid var(--danger)", color: "var(--danger)" }}>
         <strong>Calendar could not load.</strong>
         <p style={{ margin: "8px 0 0", fontSize: "14px" }}>{error}</p>
       </div>
@@ -119,10 +124,11 @@ export default function CalendarContainer({ onCounts, refreshKey, onEventClick, 
   // did nothing; a remount always applies the requested view.)
   return (
     <InnerCalendar
-      key={`${view || "month-grid"}|${sxEvents.map((e) => e.id).join(",")}`}
+      key={`${view || "month-grid"}|${isDark ? "d" : "l"}|${sxEvents.map((e) => e.id).join(",")}`}
       events={sxEvents}
       onEventClick={onEventClick}
       view={view}
+      isDark={isDark}
     />
   );
 }
