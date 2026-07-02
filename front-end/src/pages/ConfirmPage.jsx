@@ -9,6 +9,7 @@ import {
   acceptLink,
 } from "../services/api";
 import { useToast } from "../components/ToastProvider";
+import PeekModal from "../components/PeekModal";
 
 const REASON_LABEL = {
   "same reference": "Same reference #",
@@ -21,7 +22,7 @@ const KIND_ICON = { document: "📄", note: "📝", event: "📅", task: "✓" }
 // Past items connected to this letter (ref-number, series, semantic). Documents
 // and notes can be linked (soft link, human-confirmed); events/tasks are shown
 // as context since they belong to a related letter, not this one.
-function RelatedPanel({ docId, related, onLink, linked }) {
+function RelatedPanel({ docId, related, onLink, linked, onPeek }) {
   if (!related || related.length === 0) return null;
   return (
     <div
@@ -52,7 +53,8 @@ function RelatedPanel({ docId, related, onLink, linked }) {
               }}
             >
               <span style={{ fontSize: 18 }}>{KIND_ICON[it.kind] || "•"}</span>
-              <div style={{ minWidth: 0 }}>
+              <button onClick={() => onPeek({ kind: it.kind, id: it.id })} title="Peek"
+                style={{ minWidth: 0, flex: 1, textAlign: "left", background: "none", border: "none", cursor: "pointer", color: "var(--text)", padding: 0 }}>
                 <div style={{ fontSize: 15, fontWeight: 560, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                   {it.title}
                 </div>
@@ -60,7 +62,7 @@ function RelatedPanel({ docId, related, onLink, linked }) {
                   {REASON_LABEL[it.reason] || it.reason}
                   {it.ref_number ? ` · ${it.ref_number}` : ""}
                 </div>
-              </div>
+              </button>
               <div style={{ marginLeft: "auto", flexShrink: 0 }}>
                 {linkable ? (
                   isLinked ? (
@@ -189,6 +191,7 @@ export default function ConfirmPage() {
   const [busy, setBusy] = useState(false);
   const [related, setRelated] = useState([]);
   const [linked, setLinked] = useState(new Set());
+  const [peek, setPeek] = useState(null);
 
   useEffect(() => {
     getConfirmation(jobId)
@@ -329,7 +332,8 @@ export default function ConfirmPage() {
         </span>
       </div>
 
-      <RelatedPanel docId={job.doc_id} related={related} onLink={linkRelated} linked={linked} />
+      <RelatedPanel docId={job.doc_id} related={related} onLink={linkRelated} linked={linked} onPeek={setPeek} />
+      {peek && <PeekModal item={peek} onClose={() => setPeek(null)} />}
 
       {items.length === 0 ? (
         <div style={{ color: "var(--muted)" }}>Nothing left to review here.</div>

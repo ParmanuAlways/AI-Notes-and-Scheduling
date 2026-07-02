@@ -10,6 +10,7 @@ import {
 } from "../services/api";
 import { fmtDate } from "../components/DateInput";
 import { useToast } from "../components/ToastProvider";
+import PeekModal from "../components/PeekModal";
 
 // "2026-07-09" -> "09 Jul 2026" (DD MMM YYYY, per NFR-5).
 function prettyDate(d) {
@@ -100,9 +101,11 @@ export default function InboxPage() {
   const [pending, setPending] = useState([]);
   const [docs, setDocs] = useState([]);
   const [details, setDetails] = useState({});
+  const [docIds, setDocIds] = useState({}); // job_id -> document id, for peek
   const [aiStatus, setAiStatus] = useState(null);
   const [busyJob, setBusyJob] = useState(null);
   const [processing, setProcessing] = useState(false);
+  const [peek, setPeek] = useState(null);
 
   function load() {
     getPendingConfirmations().then(setPending).catch(() => {});
@@ -126,7 +129,10 @@ export default function InboxPage() {
   useEffect(() => {
     pending.forEach((p) => {
       getConfirmation(p.job_id)
-        .then((r) => setDetails((d) => ({ ...d, [p.job_id]: r.extractions || [] })))
+        .then((r) => {
+          setDetails((d) => ({ ...d, [p.job_id]: r.extractions || [] }));
+          if (r.job?.doc_id) setDocIds((m) => ({ ...m, [p.job_id]: r.job.doc_id }));
+        })
         .catch(() => {});
     });
   }, [pending]);
@@ -205,7 +211,13 @@ export default function InboxPage() {
             >
               <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
                 <div style={{ minWidth: 0 }}>
-                  <strong style={{ fontSize: 16 }}>{item.filename}</strong>
+                  <button
+                    onClick={() => docIds[item.job_id] && setPeek({ kind: "document", id: docIds[item.job_id] })}
+                    disabled={!docIds[item.job_id]}
+                    title="Peek at the letter"
+                    style={{ background: "none", border: "none", padding: 0, cursor: docIds[item.job_id] ? "pointer" : "default", color: "var(--accent)", fontSize: 16, fontWeight: 700, textAlign: "left" }}>
+                    {item.filename}
+                  </button>
                   <p style={{ color: "var(--muted)", fontSize: 13.5, margin: "3px 0 0" }}>
                     {item.extraction_count > 0
                       ? `${item.extraction_count} item(s) found · uploaded ${fmtDate(item.uploaded_at)}`
@@ -304,6 +316,8 @@ export default function InboxPage() {
           </div>
         </section>
       )}
+
+      {peek && <PeekModal item={peek} onClose={() => setPeek(null)} />}
     </div>
   );
 }

@@ -5,6 +5,7 @@
  */
 import { useEffect, useState } from "react";
 import { getConnections } from "../services/api";
+import PeekModal from "./PeekModal";
 
 const KIND_ICON = { document: "📄", note: "📝", event: "📅", task: "✓", audio: "🎙" };
 const KIND_COLOR = {
@@ -41,6 +42,7 @@ function MiniGraph({ center, nodes }) {
 export default function Connections({ kind, id, showGraph = true }) {
   const [data, setData] = useState(null);
   const [loaded, setLoaded] = useState(false);
+  const [peek, setPeek] = useState(null);
 
   useEffect(() => {
     if (kind == null || id == null) return;
@@ -76,20 +78,22 @@ export default function Connections({ kind, id, showGraph = true }) {
               {relation}
             </div>
             {items.map((c) => (
-              <div key={`${c.kind}-${c.id}`} style={{
-                display: "flex", alignItems: "center", gap: 10, padding: "8px 12px",
-                borderRadius: 9, background: "var(--bg)", border: "1px solid var(--border)", marginBottom: 6,
+              <button key={`${c.kind}-${c.id}`} onClick={() => setPeek({ kind: c.kind, id: c.id })}
+                title="Peek" style={{
+                display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", width: "100%", textAlign: "left",
+                borderRadius: 9, background: "var(--bg)", border: "1px solid var(--border)", marginBottom: 6, cursor: "pointer", color: "var(--text)",
               }}>
                 <span>{KIND_ICON[c.kind] || "•"}</span>
                 <span style={{ flex: 1, minWidth: 0, fontSize: 14, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                   {c.title}
                 </span>
                 <span style={{ fontSize: 11.5, color: "var(--muted)", textTransform: "capitalize" }}>{c.kind}</span>
-              </div>
+              </button>
             ))}
           </div>
         ))}
       </div>
+      {peek && <PeekModal item={peek} onClose={() => setPeek(null)} />}
     </div>
   );
 }
