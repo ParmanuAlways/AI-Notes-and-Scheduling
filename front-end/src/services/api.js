@@ -95,6 +95,12 @@ export const reextractDocument = (id) => req("POST", `/documents/${id}/reextract
 // FR-24/25 — past items related to a document (ref-number + series + semantic)
 export const getRelatedForDoc = (id) =>
   req("GET", `/documents/${id}/related`).then((r) => r.related || []);
+// Correspondence lifecycle: open | replied | closed
+export const setLetterStatus = (id, status) =>
+  req("PATCH", `/documents/${id}/letter-status`, { status });
+// Connections / backlinks for any item (document | note | event | task)
+export const getConnections = (kind, id) =>
+  req("GET", `/connections/${kind}/${id}`);
 
 // FR-27 — open the original document (returns a URL for <a>/<img>)
 export const documentDownloadUrl = (id) => `${BASE}/documents/${id}/download`;

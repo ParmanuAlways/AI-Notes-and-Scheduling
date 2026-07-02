@@ -9,9 +9,18 @@ import {
   getAuditLog,
   checkServices,
   reextractDocument,
+  setLetterStatus,
 } from "../services/api";
 import { fmtDate, fmtDateTime } from "../components/DateInput";
 import { useToast } from "../components/ToastProvider";
+import Connections from "../components/Connections";
+
+// Correspondence lifecycle badge colours.
+const LETTER_CHIP = {
+  open:    { bg: "var(--warn-soft)", fg: "var(--warn)", label: "Open" },
+  replied: { bg: "var(--ok-soft)", fg: "var(--ok)", label: "Replied" },
+  closed:  { bg: "var(--surface-2)", fg: "var(--muted)", label: "Closed" },
+};
 
 // Map a job/document status to a token-based chip colour.
 function chip(status) {
@@ -38,6 +47,8 @@ export default function UploadPage() {
   const [pending, setPending] = useState([]);
   const [aiStatus, setAiStatus] = useState(null);
   const [history, setHistory] = useState(null);
+  const [awaitingOnly, setAwaitingOnly] = useState(false);
+  const [connDoc, setConnDoc] = useState(null); // document whose connections modal is open
 
   function loadData() {
     getDocuments().then(setDocuments).catch(() => {});
@@ -98,6 +109,18 @@ export default function UploadPage() {
       toast.info("Re-extraction started — watch the Inbox.");
       setTimeout(loadData, 1500);
     } catch (e) { toast.error(e.message); }
+  }
+
+  async function handleLetterStatus(id, status) {
+    // optimistic update
+    setDocuments((docs) => docs.map((d) => (d.id === id ? { ...d, letter_status: status } : d)));
+    try {
+      await setLetterStatus(id, status);
+      toast.success(`Marked ${status}.`);
+    } catch (e) {
+      toast.error(e.message);
+      loadData();
+    }
   }
 
   async function openHistory(doc) {
@@ -216,29 +239,56 @@ export default function UploadPage() {
       {/* Uploaded documents */}
       {documents.length > 0 && (
         <div>
-          <h2 style={{ margin: "0 0 14px", fontSize: 19 }}>Your documents</h2>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "0 0 14px" }}>
+            <h2 style={{ margin: 0, fontSize: 19 }}>Your documents</h2>
+            <button
+              onClick={() => setAwaitingOnly((v) => !v)}
+              style={{
+                marginLeft: "auto", border: "1px solid var(--border-2)", cursor: "pointer",
+                padding: "6px 14px", borderRadius: 99, fontSize: 13.5, fontWeight: 600,
+                background: awaitingOnly ? "var(--warn-soft)" : "var(--surface)",
+                color: awaitingOnly ? "var(--warn)" : "var(--text-2)",
+              }}
+            >
+              {awaitingOnly ? "✓ Awaiting reply" : "Awaiting reply"}
+            </button>
+          </div>
           <div style={{ ...cardStyle, overflow: "hidden" }}>
-            {documents.map((doc, i) => {
+            {(awaitingOnly ? documents.filter((d) => (d.letter_status || "open") === "open") : documents).map((doc, i, arr) => {
               const c = chip(doc.status);
+              const ls = LETTER_CHIP[doc.letter_status || "open"];
               return (
                 <div
                   key={doc.id}
                   style={{
                     display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12,
                     padding: "16px 20px",
-                    borderBottom: i < documents.length - 1 ? "1px solid var(--border)" : "none",
+                    borderBottom: i < arr.length - 1 ? "1px solid var(--border)" : "none",
                   }}
                 >
                   <div style={{ minWidth: 0 }}>
                     <strong style={{ fontSize: 16 }}>{doc.filename}</strong>
                     <p style={{ color: "var(--muted)", fontSize: 13.5, margin: "3px 0 0" }}>
                       {(doc.file_type || "").toUpperCase()} — uploaded {fmtDate(doc.uploaded_at)}
+                      {doc.ref_number ? ` · ${doc.ref_number}` : ""}
                     </p>
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                    <span title="Correspondence status"
+                      style={{ background: ls.bg, color: ls.fg, padding: "4px 12px", borderRadius: 99, fontSize: 13, fontWeight: 700 }}>
+                      {ls.label}
+                    </span>
+                    <select value={doc.letter_status || "open"} onChange={(e) => handleLetterStatus(doc.id, e.target.value)}
+                      title="Set correspondence status"
+                      style={{ ...btn(false), padding: "6px 8px", fontSize: 13, cursor: "pointer" }}>
+                      <option value="open">Open</option>
+                      <option value="replied">Replied</option>
+                      <option value="closed">Closed</option>
+                    </select>
                     <span style={{ background: c.bg, color: c.fg, padding: "4px 12px", borderRadius: 99, fontSize: 13, fontWeight: 600 }}>
                       {doc.status}
                     </span>
+                    <button onClick={() => setConnDoc(doc)} style={{ ...btn(false), padding: "6px 12px", fontSize: 13 }}>Links</button>
                     <a href={documentDownloadUrl(doc.id)} target="_blank" rel="noreferrer" style={{ ...btn(false), padding: "6px 12px", fontSize: 13, textDecoration: "none" }}>Open</a>
                     <button onClick={() => handleReextract(doc.id)} disabled={aiStatus !== "ready"}
                       title={aiStatus === "ready" ? "Re-run AI extraction" : "AI offline"}
@@ -283,6 +333,31 @@ export default function UploadPage() {
                 </div>
               ))
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Connections modal */}
+      {connDoc && (
+        <div
+          onClick={() => setConnDoc(null)}
+          style={{
+            position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.5)",
+            display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{ ...cardStyle, padding: 26, width: "100%", maxWidth: 560, maxHeight: "80vh", overflowY: "auto" }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+              <h3 style={{ margin: 0 }}>Connections — {connDoc.filename}</h3>
+              <button onClick={() => setConnDoc(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", fontSize: 22 }}>×</button>
+            </div>
+            <Connections kind="document" id={connDoc.id} />
+            <p style={{ color: "var(--muted)", fontSize: 13 }}>
+              Nothing here yet means this letter isn't linked to other items.
+            </p>
           </div>
         </div>
       )}

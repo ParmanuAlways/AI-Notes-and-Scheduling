@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { getTask, updateTask, deleteTask, documentDownloadUrl } from "../services/api";
 import DateInput, { fmtDate, toApiDate, fmtDateTime } from "./DateInput";
 import EntityNotes from "./EntityNotes";
+import Connections from "./Connections";
 
 function Field({ label, value }) {
   if (value === null || value === undefined || value === "") return null;
@@ -184,6 +185,9 @@ export default function TaskDetailModal({ taskId, onClose, onChanged }) {
                   ))}
                 </div>
               )}
+
+              {/* Connections — backlinks + graph */}
+              <Connections kind="task" id={task.id} />
 
               {/* Notes attached to this task */}
               <EntityNotes entityType="task" entityId={task.id} />

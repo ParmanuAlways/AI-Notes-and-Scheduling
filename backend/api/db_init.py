@@ -251,6 +251,14 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_documents_user_hash
 ALTER TABLE documents ADD COLUMN IF NOT EXISTS ref_number TEXT;
 CREATE INDEX IF NOT EXISTS idx_documents_ref ON documents(ref_number);
 
+-- Correspondence lifecycle: where a letter sits in its handling.
+--   open    = received, not yet actioned/replied
+--   replied = a reply has been sent (auto-set when its reply task is completed)
+--   closed  = fully dealt with
+-- Kept separate from the processing `status`; values validated in the API.
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS letter_status TEXT NOT NULL DEFAULT 'open';
+CREATE INDEX IF NOT EXISTS idx_documents_letter_status ON documents(letter_status);
+
 -- FR-25: AI-suggested "soft" links between content items (notes/documents).
 -- Never auto-applied — the user accepts or rejects each suggestion.
 CREATE TABLE IF NOT EXISTS soft_links (

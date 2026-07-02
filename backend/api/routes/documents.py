@@ -1,5 +1,6 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks, Depends
 from fastapi.responses import FileResponse
+from pydantic import BaseModel
 import hashlib
 import os
 import re
@@ -209,6 +210,7 @@ def list_documents(user: CurrentUser = Depends(current_user)):
     try:
         cur.execute("""
             SELECT d.id, d.filename, d.file_type, d.status, d.uploaded_at,
+                   d.ref_number, d.letter_status,
                    pq.status AS queue_status, pq.retry_count
             FROM   documents d
             LEFT JOIN processing_queue pq ON pq.document_id = d.id
@@ -312,6 +314,38 @@ def get_document(doc_id: int, user: CurrentUser = Depends(current_user)):
             "linked_tasks": linked_tasks,
             "related_documents": related_docs,
         }
+    finally:
+        cur.close()
+        conn.close()
+
+
+class LetterStatusBody(BaseModel):
+    status: str   # open | replied | closed
+
+
+@router.patch("/documents/{doc_id}/letter-status")
+def set_letter_status(doc_id: int, body: LetterStatusBody,
+                      user: CurrentUser = Depends(current_user)):
+    """Move a letter along its correspondence lifecycle (open → replied → closed)."""
+    if body.status not in ("open", "replied", "closed"):
+        raise HTTPException(400, "status must be open, replied or closed.")
+    conn = get_db()
+    cur = conn.cursor()
+    try:
+        cur.execute("UPDATE documents SET letter_status = %s "
+                    "WHERE id = %s AND users_id = %s AND deleted_at IS NULL",
+                    (body.status, doc_id, user["id"]))
+        if cur.rowcount == 0:
+            raise HTTPException(404, "Document not found.")
+        cur.execute("""
+            INSERT INTO audit_log (action, entity_type, entity_id, detail)
+            VALUES ('status_changed', 'document', %s, %s)
+        """, (doc_id, f"Letter marked {body.status}"))
+        conn.commit()
+        return {"doc_id": doc_id, "letter_status": body.status}
+    except HTTPException:
+        conn.rollback()
+        raise
     finally:
         cur.close()
         conn.close()

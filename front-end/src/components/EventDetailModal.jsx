@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { getEvent, documentDownloadUrl } from "../services/api";
 import { fmtDate, fmtDateTime } from "./DateInput";
 import EntityNotes from "./EntityNotes";
+import Connections from "./Connections";
 
 // Confidence is intentionally NOT shown here — per product decision it appears
 // only at extraction time (on the Upload review screen), not in the saved-event
@@ -153,6 +154,9 @@ export default function EventDetailModal({ eventId, onClose, onEdit, onDelete })
                   ))}
                 </div>
               )}
+
+              {/* Connections — backlinks + graph */}
+              <Connections kind="event" id={ev.id} />
 
               {/* Notes attached to this event */}
               <EntityNotes entityType="event" entityId={ev.id} />

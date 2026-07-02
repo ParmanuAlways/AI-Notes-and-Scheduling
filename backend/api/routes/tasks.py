@@ -178,6 +178,22 @@ def update_task(task_id: int, update: TaskUpdate,
         )
         if cur.rowcount == 0:
             raise HTTPException(404, "Task not found.")
+
+        # Correspondence lifecycle: completing a reply task marks the source
+        # letter 'replied' (only if it's still open — never downgrades a manual
+        # 'closed'). Ties the reply-by workflow to the letter's status.
+        if fields.get("status") == "done":
+            cur.execute("SELECT is_reply_task FROM tasks WHERE id = %s", (task_id,))
+            row = cur.fetchone()
+            if row and row["is_reply_task"]:
+                cur.execute("""
+                    UPDATE documents SET letter_status = 'replied'
+                    WHERE letter_status = 'open' AND users_id = %s AND id IN (
+                        SELECT source_id FROM linked_documents
+                        WHERE source_type = 'document' AND entity_type = 'task' AND entity_id = %s
+                    )
+                """, (user["id"], task_id))
+
         cur.execute("""
             INSERT INTO audit_log (action, entity_type, entity_id, detail)
             VALUES ('edited', 'task', %s, %s)

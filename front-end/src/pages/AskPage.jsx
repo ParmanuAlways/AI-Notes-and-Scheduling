@@ -1,10 +1,12 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ask, reindex } from "../services/api";
+import { ask, reindex, documentDownloadUrl } from "../services/api";
 
-const KIND_ICON = { document: "📄", note: "📝", event: "📅" };
+const KIND_ICON = { document: "📄", note: "📝", event: "📅", task: "✓" };
 
 export default function AskPage() {
+  const navigate = useNavigate();
   const [q, setQ]           = useState("");
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -43,6 +45,14 @@ export default function AskPage() {
     "Which documents mention the audit?",
   ];
 
+  // Open a cited source: a document opens its file; notes/events jump to their page.
+  function openSource(s) {
+    if (s.kind === "document") window.open(documentDownloadUrl(s.item_id), "_blank");
+    else if (s.kind === "note") navigate("/notes");
+    else if (s.kind === "event") navigate("/calendar");
+    else if (s.kind === "task") navigate("/tasks");
+  }
+
   return (
     <>
       <div style={{ marginBottom: "24px", display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: "12px" }}>
@@ -63,7 +73,7 @@ export default function AskPage() {
       </div>
 
       {indexMsg && (
-        <p style={{ color: indexMsg.startsWith("Error") ? "#ef4444" : "#16a34a", fontSize: "13px", marginBottom: "14px" }}>
+        <p style={{ color: indexMsg.startsWith("Error") ? "var(--danger)" : "var(--ok)", fontSize: "13px", marginBottom: "14px" }}>
           {indexMsg}
         </p>
       )}
@@ -78,7 +88,7 @@ export default function AskPage() {
           style={{ flex: 1, padding: "16px 18px", borderRadius: "14px", border: "1px solid var(--border-2)", fontSize: "16px", outline: "none" }}
         />
         <button type="submit" disabled={loading || !q.trim()}
-          style={{ background: loading ? "#64748b" : "#2563eb", color: "white", border: "none", padding: "16px 28px", borderRadius: "14px", cursor: loading ? "not-allowed" : "pointer", fontWeight: 700 }}>
+          style={{ background: loading ? "var(--muted)" : "var(--accent)", color: "white", border: "none", padding: "16px 28px", borderRadius: "14px", cursor: loading ? "not-allowed" : "pointer", fontWeight: 700 }}>
           {loading ? "Thinking…" : "Ask"}
         </button>
       </form>
@@ -125,18 +135,20 @@ export default function AskPage() {
               <h3 style={{ margin: "0 0 12px", fontSize: "14px", color: "var(--muted)" }}>Sources</h3>
               <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                 {result.sources.map((s) => (
-                  <div key={`${s.kind}-${s.item_id}`} style={{
-                    display: "flex", alignItems: "center", gap: "10px",
-                    background: "var(--bg)", border: "1px solid var(--border)",
-                    borderRadius: "10px", padding: "10px 14px", fontSize: "14px",
-                  }}>
+                  <button key={`${s.kind}-${s.item_id}`} onClick={() => openSource(s)}
+                    title="Open source"
+                    style={{
+                      display: "flex", alignItems: "center", gap: "10px", width: "100%", textAlign: "left",
+                      background: "var(--bg)", border: "1px solid var(--border)", cursor: "pointer",
+                      borderRadius: "10px", padding: "10px 14px", fontSize: "14px", color: "var(--text)",
+                    }}>
                     <span style={{ background: "var(--accent)", color: "white", borderRadius: "6px", padding: "1px 8px", fontSize: "12px", fontWeight: 700 }}>
                       {s.n}
                     </span>
                     <span>{KIND_ICON[s.kind] || "📄"}</span>
                     <span style={{ flex: 1 }}>{s.title || `${s.kind} ${s.item_id}`}</span>
-                    <span style={{ color: "var(--muted)", fontSize: "12px" }}>match {(s.score * 100).toFixed(0)}%</span>
-                  </div>
+                    <span style={{ color: "var(--muted)", fontSize: "12px" }}>match {(s.score * 100).toFixed(0)}% →</span>
+                  </button>
                 ))}
               </div>
             </div>
