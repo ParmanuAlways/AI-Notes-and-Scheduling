@@ -9,6 +9,7 @@ const TITLES = {
   "/upload":    ["Capture", "Add a letter, photo, or file"],
   "/inbox":     ["Inbox", "Review what the AI found — you approve"],
   "/calendar":  ["Calendar", "Your schedule"],
+  "/graph":     ["Knowledge Graph", "How everything connects"],
   "/search":    ["Search", "Find anything · answers come from your data"],
   "/voice":     ["Voice", "Record and transcribe"],
   "/ask":       ["Ask AI", "Questions across your notes and documents"],

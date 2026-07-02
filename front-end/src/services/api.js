@@ -108,6 +108,8 @@ export const getRegister = () =>
   req("GET", "/documents/register").then((r) => r.register || []);
 // Natural-language quick capture → parsed single item
 export const parseCapture = (text) => req("POST", "/tasks/parse", { text });
+// Knowledge graph: whole-corpus nodes + labeled edges
+export const getGraph = () => req("GET", "/graph");
 
 // FR-27 — open the original document (returns a URL for <a>/<img>)
 export const documentDownloadUrl = (id) => `${BASE}/documents/${id}/download`;

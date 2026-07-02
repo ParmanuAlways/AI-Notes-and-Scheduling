@@ -16,6 +16,7 @@ import InboxPage        from "./pages/InboxPage";
 import ConfirmPage      from "./pages/ConfirmPage";
 import UploadPage       from "./pages/UploadPage";
 import CalendarPage     from "./pages/CalendarPage";
+import GraphPage        from "./pages/GraphPage";
 import TasksPage        from "./pages/TasksPage";
 import SearchPage       from "./pages/SearchPage";
 import AskPage          from "./pages/AskPage";
@@ -49,6 +50,7 @@ function AnimatedRoutes() {
           <Route path="/confirm/:jobId" element={<ErrorBoundary><ConfirmPage /></ErrorBoundary>} />
           <Route path="/upload"    element={<ErrorBoundary><UploadPage /></ErrorBoundary>} />
           <Route path="/calendar"  element={<ErrorBoundary><CalendarPage /></ErrorBoundary>} />
+          <Route path="/graph"     element={<ErrorBoundary><GraphPage /></ErrorBoundary>} />
           <Route path="/tasks"     element={<ErrorBoundary><TasksPage /></ErrorBoundary>} />
           <Route path="/search"    element={<ErrorBoundary><SearchPage /></ErrorBoundary>} />
           <Route path="/ask"       element={<ErrorBoundary><AskPage /></ErrorBoundary>} />

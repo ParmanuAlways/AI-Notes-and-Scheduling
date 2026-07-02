@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
-  FiPlus, FiHome, FiInbox, FiCalendar, FiSearch,
+  FiPlus, FiHome, FiInbox, FiCalendar, FiSearch, FiShare2,
   FiMic, FiMessageCircle, FiCheckSquare, FiFileText,
   FiClock, FiList, FiTrash2, FiActivity,
 } from "react-icons/fi";
@@ -14,6 +14,7 @@ const PRIMARY = [
   { name: "Today",    path: "/",         icon: <FiHome /> },
   { name: "Inbox",    path: "/inbox",    icon: <FiInbox />, badgeKey: "inbox" },
   { name: "Calendar", path: "/calendar", icon: <FiCalendar /> },
+  { name: "Graph",    path: "/graph",    icon: <FiShare2 /> },
   { name: "Search",   path: "/search",   icon: <FiSearch /> },
 ];
 
