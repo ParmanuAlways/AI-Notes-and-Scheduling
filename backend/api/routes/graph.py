@@ -49,16 +49,18 @@ def graph(user: CurrentUser = Depends(current_user)):
         edges[key] = {"source": a, "target": b, "relation": relation, "directed": directed}
 
     try:
-        cur.execute("SELECT id, filename, ref_number, letter_status FROM documents "
+        cur.execute("SELECT id, filename, ref_number, letter_status, uploaded_at FROM documents "
                     "WHERE users_id = %s AND deleted_at IS NULL", (uid,))
         docs = cur.fetchall()
         for d in docs:
             node(f"document-{d['id']}", "document", d["filename"],
-                 {"ref_number": d["ref_number"], "letter_status": d["letter_status"]})
+                 {"ref_number": d["ref_number"], "letter_status": d["letter_status"],
+                  "date": d["uploaded_at"].date().isoformat() if d["uploaded_at"] else None})
 
-        cur.execute("SELECT id, title FROM notes WHERE users_id = %s AND status = 'active'", (uid,))
+        cur.execute("SELECT id, title, created_at FROM notes WHERE users_id = %s AND status = 'active'", (uid,))
         for n in cur.fetchall():
-            node(f"note-{n['id']}", "note", n["title"] or f"Note {n['id']}")
+            node(f"note-{n['id']}", "note", n["title"] or f"Note {n['id']}",
+                 {"date": n["created_at"].date().isoformat() if n["created_at"] else None})
 
         cur.execute("SELECT id, title, event_date FROM events "
                     "WHERE users_id = %s AND status <> 'trashed' AND deleted_at IS NULL", (uid,))
@@ -66,11 +68,12 @@ def graph(user: CurrentUser = Depends(current_user)):
             node(f"event-{e['id']}", "event", e["title"],
                  {"date": e["event_date"].isoformat() if e["event_date"] else None})
 
-        cur.execute("SELECT id, title, status, is_reply_task FROM tasks "
+        cur.execute("SELECT id, title, status, is_reply_task, due_date FROM tasks "
                     "WHERE users_id = %s AND status <> 'trashed' AND deleted_at IS NULL", (uid,))
         reply_tasks = set()
         for t in cur.fetchall():
-            node(f"task-{t['id']}", "task", t["title"], {"status": t["status"]})
+            node(f"task-{t['id']}", "task", t["title"],
+                 {"status": t["status"], "date": t["due_date"].isoformat() if t["due_date"] else None})
             if t["is_reply_task"]:
                 reply_tasks.add(t["id"])
 

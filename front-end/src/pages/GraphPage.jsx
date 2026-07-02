@@ -16,6 +16,8 @@ const KIND = {
   task:     { color: "#5B7089", icon: "✓",  label: "Task" },
 };
 const REF_RELATIONS = new Set(["same reference", "same series"]);
+const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const fmtTick = (ms) => { const d = new Date(ms); return `${d.getDate()} ${MON[d.getMonth()]} ${String(d.getFullYear()).slice(2)}`; };
 
 const W = 1600, H = 1000;   // simulation coordinate space
 
@@ -27,7 +29,9 @@ export default function GraphPage() {
   const [view, setView] = useState({ x: 0, y: 0, k: 1 });
   const [hover, setHover] = useState(null);
   const [sel, setSel] = useState(null);
+  const [layout, setLayout] = useState("web"); // "web" | "timeline"
   const [filters, setFilters] = useState({ document: true, note: true, event: true, task: true, refOnly: false, labels: true });
+  const tlRef = useRef(null); // { min, max, padL, padR } for the timeline axis
 
   const nodesRef = useRef([]);
   const edgesRef = useRef([]);
@@ -36,6 +40,8 @@ export default function GraphPage() {
   const svgRef = useRef(null);
   const dragRef = useRef(null);   // { id } while dragging a node
   const panRef = useRef(null);    // { x, y } while panning
+  const layoutRef = useRef("web");
+  useEffect(() => { layoutRef.current = layout; }, [layout]);
 
   useEffect(() => {
     getGraph()
@@ -51,12 +57,44 @@ export default function GraphPage() {
         const byId = Object.fromEntries(nodesRef.current.map((x) => [x.id, x]));
         edgesRef.current = g.edges.filter((e) => byId[e.source] && byId[e.target]);
         setData(g);
-        heat(1);
       })
       .catch((e) => setError(e.message));
     return () => cancelAnimationFrame(rafRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Apply the chosen layout when the data loads or the layout switches.
+  useEffect(() => {
+    if (!data) return;
+    if (layout === "timeline") applyTimeline();
+    else { setView({ x: 0, y: 0, k: 1 }); heat(1); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [layout, data]);
+
+  // Chronological layout: X by date (left→right), Y by type lane.
+  function applyTimeline() {
+    cancelAnimationFrame(rafRef.current); rafRef.current = 0; alphaRef.current = 0;
+    const ns = nodesRef.current;
+    const laneY = { document: H * 0.22, event: H * 0.42, task: H * 0.62, note: H * 0.82 };
+    const padL = 190, padR = 90;
+    const times = ns.map((n) => (n.date ? Date.parse(n.date) : NaN)).filter((t) => !isNaN(t));
+    const min = times.length ? Math.min(...times) : 0;
+    const max = times.length ? Math.max(...times) : 1;
+    const span = Math.max(86400000, max - min);
+    ["document", "event", "task", "note"].forEach((k) => {
+      const lane = ns.filter((n) => n.kind === k);
+      lane.sort((a, b) => (Date.parse(a.date || 0) || 0) - (Date.parse(b.date || 0) || 0));
+      lane.forEach((n, i) => {
+        const t = n.date ? Date.parse(n.date) : NaN;
+        n.x = isNaN(t) ? padL * 0.45 : padL + ((t - min) / span) * (W - padL - padR);
+        n.y = laneY[k] + ((i % 3) - 1) * 34;
+        n.vx = 0; n.vy = 0;
+      });
+    });
+    tlRef.current = { min, max, padL, padR };
+    setView({ x: 0, y: 0, k: 1 });
+    rerender();
+  }
 
   const heat = useCallback((a) => {
     alphaRef.current = Math.max(alphaRef.current, a);
@@ -65,6 +103,7 @@ export default function GraphPage() {
   }, []);
 
   function tick() {
+    if (layoutRef.current === "timeline") { rafRef.current = 0; return; }
     const ns = nodesRef.current, es = edgesRef.current;
     const alpha = alphaRef.current;
     const REP = 9000, SPRING = 0.022, LEN = 200, GRAV = 0.008, DAMP = 0.85;
@@ -129,7 +168,8 @@ export default function GraphPage() {
       const g = toGraph(e.clientX, e.clientY);
       const nd = nodesRef.current.find((n) => n.id === dragRef.current.id);
       if (nd) { nd.x = g.x; nd.y = g.y; nd.vx = 0; nd.vy = 0; }
-      heat(0.4); rerender();
+      if (layoutRef.current === "web") heat(0.4);
+      rerender();
     } else if (panRef.current) {
       const r = svgRef.current.getBoundingClientRect();
       const dx = ((e.clientX - panRef.current.x) / r.width) * W;
@@ -198,6 +238,19 @@ export default function GraphPage() {
 
       {/* controls */}
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12, alignItems: "center" }}>
+        <div style={{ display: "flex", background: "var(--surface-2)", borderRadius: 9, padding: 3, gap: 2, marginRight: 4 }}>
+          {[["web", "Web"], ["timeline", "Timeline"]].map(([l, lab]) => (
+            <button key={l} onClick={() => setLayout(l)}
+              style={{
+                border: "none", cursor: "pointer", padding: "6px 15px", borderRadius: 7, fontSize: 13.5, fontWeight: 600,
+                background: layout === l ? "var(--surface)" : "transparent",
+                color: layout === l ? "var(--accent)" : "var(--text-2)",
+                boxShadow: layout === l ? "var(--shadow)" : "none",
+              }}>
+              {lab}
+            </button>
+          ))}
+        </div>
         {Object.entries(KIND).map(([k, m]) => (
           <label key={k} style={cbStyle(filters[k], m.color)} onClick={() => setFilters((f) => ({ ...f, [k]: !f[k] }))}>
             <span style={{ width: 11, height: 11, borderRadius: "50%", background: m.color, display: "inline-block" }} />
@@ -228,6 +281,33 @@ export default function GraphPage() {
             </marker>
           </defs>
           <g transform={`translate(${view.x},${view.y}) scale(${view.k})`}>
+            {/* timeline lanes + date axis */}
+            {layout === "timeline" && tlRef.current && (() => {
+              const { min, max, padL, padR } = tlRef.current;
+              const span = Math.max(1, max - min);
+              const lanes = [["Letters", H * 0.22], ["Events", H * 0.42], ["Tasks", H * 0.62], ["Notes", H * 0.82]];
+              const ticks = Array.from({ length: 5 }, (_, i) => min + (span * i) / 4);
+              return (
+                <g style={{ pointerEvents: "none" }}>
+                  {lanes.map(([lab, y]) => (
+                    <g key={lab}>
+                      <line x1={padL - 24} y1={y} x2={W - padR} y2={y} stroke="var(--border)" strokeWidth="1" strokeDasharray="2 7" />
+                      <text x={18} y={y + 4} fontSize="14" fill="var(--muted)" fontWeight="700">{lab}</text>
+                    </g>
+                  ))}
+                  <line x1={padL} y1={H - 40} x2={W - padR} y2={H - 40} stroke="var(--border-2)" strokeWidth="1.5" />
+                  {ticks.map((t, i) => {
+                    const x = padL + ((t - min) / span) * (W - padL - padR);
+                    return (
+                      <g key={i}>
+                        <line x1={x} y1={H - 45} x2={x} y2={H - 35} stroke="var(--border-2)" />
+                        <text x={x} y={H - 18} textAnchor="middle" fontSize="13" fill="var(--muted)">{fmtTick(t)}</text>
+                      </g>
+                    );
+                  })}
+                </g>
+              );
+            })()}
             {/* edges */}
             {edges.map((e, i) => {
               const a = byId[e.source], b = byId[e.target];
