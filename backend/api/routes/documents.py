@@ -2,6 +2,7 @@ from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks,
 from fastapi.responses import FileResponse
 import hashlib
 import os
+import re
 import logging
 from api.config import UPLOAD_DIR, MAX_SIZE, MAX_BATCH, ALLOWED_DOCS
 from api.db import get_db
@@ -9,6 +10,18 @@ from api.auth import current_user, CurrentUser
 
 router = APIRouter(tags=["Documents"])
 log = logging.getLogger(__name__)
+
+
+def _ref_series(ref: str):
+    """The 'file series' of a reference number — the ref with a trailing 4-digit
+    year dropped, so AB/12/2026 and AB/12/2025 share the series 'AB/12'. Returns
+    the ref unchanged when there's no year suffix (then only exact matches apply)."""
+    if not ref:
+        return None
+    parts = ref.strip().split("/")
+    if len(parts) >= 2 and re.fullmatch(r"(19|20)\d{2}", parts[-1].strip()):
+        return "/".join(parts[:-1])
+    return ref.strip()
 
 _MIME = {
     "pdf":  "application/pdf",
@@ -302,6 +315,95 @@ def get_document(doc_id: int, user: CurrentUser = Depends(current_user)):
     finally:
         cur.close()
         conn.close()
+
+
+@router.get("/documents/{doc_id}/related")
+def related_items(doc_id: int, user: CurrentUser = Depends(current_user)):
+    """FR-24/FR-25 — 'what does this letter connect to?'. Merges three signals into
+    one ranked list of past items:
+      • same reference number (exact)      — highest confidence
+      • same file series (ref minus year)  — ongoing correspondence
+      • semantically similar content       — via the embedding/vector store
+    Also pulls in the events/tasks that hang off the matched letters, so the user
+    sees the whole thread. Read-only; the UI offers to link (human confirms)."""
+    related, seen = [], set()
+
+    def add(kind, item_id, title, reason, extra=None):
+        key = (kind, item_id)
+        if key in seen or (kind == "document" and item_id == doc_id):
+            return
+        seen.add(key)
+        related.append({"kind": kind, "id": item_id, "title": title or f"{kind} {item_id}",
+                        "reason": reason, **(extra or {})})
+
+    conn = get_db()
+    cur = conn.cursor()
+    try:
+        cur.execute("SELECT id, filename, full_text, ref_number FROM documents "
+                    "WHERE id = %s AND users_id = %s", (doc_id, user["id"]))
+        doc = cur.fetchone()
+        if not doc:
+            raise HTTPException(404, "Document not found.")
+        ref = doc["ref_number"]
+
+        # 1 + 2 — reference number: exact, then same series
+        if ref:
+            cur.execute("""
+                SELECT id, filename, ref_number FROM documents
+                WHERE users_id = %s AND id <> %s AND deleted_at IS NULL AND ref_number = %s
+                ORDER BY uploaded_at DESC
+            """, (user["id"], doc_id, ref))
+            for r in cur.fetchall():
+                add("document", r["id"], r["filename"], "same reference", {"ref_number": r["ref_number"]})
+
+            series = _ref_series(ref)
+            if series and series != ref:
+                cur.execute("""
+                    SELECT id, filename, ref_number FROM documents
+                    WHERE users_id = %s AND id <> %s AND deleted_at IS NULL AND ref_number LIKE %s
+                    ORDER BY uploaded_at DESC
+                """, (user["id"], doc_id, series + "/%"))
+                for r in cur.fetchall():
+                    add("document", r["id"], r["filename"], "same series", {"ref_number": r["ref_number"]})
+
+        # events/tasks that hang off the matched letters
+        for mid in [it["id"] for it in related if it["kind"] == "document"]:
+            cur.execute("""
+                SELECT e.id, e.title FROM events e
+                JOIN linked_documents ld ON ld.entity_type = 'event' AND ld.entity_id = e.id
+                WHERE ld.source_type = 'document' AND ld.source_id = %s AND e.status <> 'trashed'
+            """, (mid,))
+            for r in cur.fetchall():
+                add("event", r["id"], r["title"], "on a related letter")
+            cur.execute("""
+                SELECT t.id, t.title FROM tasks t
+                JOIN linked_documents ld ON ld.entity_type = 'task' AND ld.entity_id = t.id
+                WHERE ld.source_type = 'document' AND ld.source_id = %s AND t.status <> 'trashed'
+            """, (mid,))
+            for r in cur.fetchall():
+                add("task", r["id"], r["title"], "on a related letter")
+    finally:
+        cur.close()
+        conn.close()
+
+    # 3 — semantic matches (documents + notes), best-effort (NFR-9)
+    try:
+        from api.ai.embeddings import embed_available
+        from api.ai.vectorstore import search
+        if doc["full_text"] and embed_available():
+            for h in search(doc["full_text"][:2000], top_k=8, user_id=user["id"]):
+                hk, hid = h.get("kind"), h.get("item_id")
+                if not hk or hid is None:
+                    continue
+                try:
+                    hid = int(hid)
+                except (TypeError, ValueError):
+                    continue
+                add(hk, hid, h.get("title", ""), "similar content", {"score": round(float(h["score"]), 3)})
+    except Exception as e:
+        log.warning("Related semantic search failed for doc %s: %s", doc_id, e)
+
+    return {"related": related[:12]}
 
 
 @router.delete("/documents/{doc_id}")

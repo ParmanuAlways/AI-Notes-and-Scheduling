@@ -5,8 +5,88 @@ import {
   confirmItem,
   dismissItem,
   documentDownloadUrl,
+  getRelatedForDoc,
+  acceptLink,
 } from "../services/api";
 import { useToast } from "../components/ToastProvider";
+
+const REASON_LABEL = {
+  "same reference": "Same reference #",
+  "same series": "Same file series",
+  "on a related letter": "On a related letter",
+  "similar content": "Similar content",
+};
+const KIND_ICON = { document: "📄", note: "📝", event: "📅", task: "✓" };
+
+// Past items connected to this letter (ref-number, series, semantic). Documents
+// and notes can be linked (soft link, human-confirmed); events/tasks are shown
+// as context since they belong to a related letter, not this one.
+function RelatedPanel({ docId, related, onLink, linked }) {
+  if (!related || related.length === 0) return null;
+  return (
+    <div
+      style={{
+        background: "var(--surface)", border: "1px solid var(--border)",
+        borderRadius: "var(--radius)", boxShadow: "var(--shadow)",
+        padding: "16px 20px", marginBottom: 20,
+      }}
+    >
+      <div style={{ fontSize: 15.5, fontWeight: 650, marginBottom: 4 }}>
+        📎 Related to your past items
+      </div>
+      <div style={{ fontSize: 13.5, color: "var(--muted)", marginBottom: 12 }}>
+        The AI found earlier letters, tasks and notes that look connected — link the ones that belong together.
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {related.map((it) => {
+          const key = `${it.kind}-${it.id}`;
+          const linkable = it.kind === "document" || it.kind === "note";
+          const isLinked = linked.has(key);
+          return (
+            <div
+              key={key}
+              style={{
+                display: "flex", alignItems: "center", gap: 12,
+                padding: "10px 12px", borderRadius: 10,
+                background: "var(--bg)", border: "1px solid var(--border)",
+              }}
+            >
+              <span style={{ fontSize: 18 }}>{KIND_ICON[it.kind] || "•"}</span>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 15, fontWeight: 560, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {it.title}
+                </div>
+                <div style={{ fontSize: 12.5, color: "var(--muted)" }}>
+                  {REASON_LABEL[it.reason] || it.reason}
+                  {it.ref_number ? ` · ${it.ref_number}` : ""}
+                </div>
+              </div>
+              <div style={{ marginLeft: "auto", flexShrink: 0 }}>
+                {linkable ? (
+                  isLinked ? (
+                    <span style={{ color: "var(--ok)", fontWeight: 600, fontSize: 13.5 }}>✓ Linked</span>
+                  ) : (
+                    <button
+                      onClick={() => onLink(it)}
+                      style={{
+                        background: "var(--accent-soft)", color: "var(--accent)", border: "none",
+                        padding: "7px 15px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 13.5,
+                      }}
+                    >
+                      Link
+                    </button>
+                  )
+                ) : (
+                  <span style={{ color: "var(--muted)", fontSize: 12.5 }}>context</span>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 const CONF_THRESHOLD = 0.7; // matches backend CONFIDENCE_THRESHOLD (FR-10/FR-14)
 
@@ -107,11 +187,16 @@ export default function ConfirmPage() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [related, setRelated] = useState([]);
+  const [linked, setLinked] = useState(new Set());
 
   useEffect(() => {
     getConfirmation(jobId)
       .then((r) => {
         setJob(r.job);
+        if (r.job?.doc_id) {
+          getRelatedForDoc(r.job.doc_id).then(setRelated).catch(() => {});
+        }
         setItems(
           (r.extractions || []).map((e) => ({
             id: e.id,
@@ -136,6 +221,17 @@ export default function ConfirmPage() {
 
   const setField = (idx, k, v) =>
     setItems((prev) => prev.map((it, i) => (i === idx ? { ...it, [k]: v } : it)));
+
+  async function linkRelated(it) {
+    if (!job?.doc_id) return;
+    try {
+      await acceptLink({ a_kind: "document", a_id: job.doc_id, b_kind: it.kind, b_id: it.id });
+      setLinked((prev) => new Set(prev).add(`${it.kind}-${it.id}`));
+      toast.success(`Linked to “${it.title}”.`);
+    } catch (e) {
+      toast.error(e.message);
+    }
+  }
 
   const afterRemoval = (remaining) => {
     if (remaining === 0) {
@@ -232,6 +328,8 @@ export default function ConfirmPage() {
           <b style={{ color: "var(--text-2)" }}>Enter</b> approve · <b style={{ color: "var(--text-2)" }}>Esc</b> back
         </span>
       </div>
+
+      <RelatedPanel docId={job.doc_id} related={related} onLink={linkRelated} linked={linked} />
 
       {items.length === 0 ? (
         <div style={{ color: "var(--muted)" }}>Nothing left to review here.</div>

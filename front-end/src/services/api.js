@@ -89,6 +89,9 @@ export const uploadFile = (file) => {
 
 export const deleteDocument = (id) => req("DELETE", `/documents/${id}`);
 export const reextractDocument = (id) => req("POST", `/documents/${id}/reextract`);
+// FR-24/25 — past items related to a document (ref-number + series + semantic)
+export const getRelatedForDoc = (id) =>
+  req("GET", `/documents/${id}/related`).then((r) => r.related || []);
 
 // FR-27 — open the original document (returns a URL for <a>/<img>)
 export const documentDownloadUrl = (id) => `${BASE}/documents/${id}/download`;
