@@ -1,314 +1,226 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getDashboard, getAuditLog, checkServices } from "../services/api";
-import StatCard from "../components/StatCard";
-import { motion } from "framer-motion";
 
 const QUICK_ACTIONS = [
-  { label: "Upload document", icon: "📄", to: "/upload",   color: "#2563eb" },
-  { label: "Voice note",      icon: "🎙", to: "/voice",    color: "#7c3aed" },
-  { label: "Ask AI",          icon: "💬", to: "/ask",      color: "#0891b2" },
-  { label: "New event",       icon: "📅", to: "/calendar", color: "#16a34a" },
-  { label: "New task",        icon: "✓",  to: "/tasks",    color: "#d97706" },
+  { label: "Upload document", icon: "📄", to: "/upload" },
+  { label: "Voice note",      icon: "🎙", to: "/voice" },
+  { label: "Ask AI",          icon: "💬", to: "/ask" },
+  { label: "New event",       icon: "📅", to: "/calendar" },
+  { label: "New task",        icon: "✓",  to: "/tasks" },
 ];
-
-// shared hover style for clickable cards/rows
-const clickable = { cursor: "pointer" };
 
 function fmtDate(iso) {
   if (!iso) return "—";
-  const d = new Date(iso);
-  return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  return new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 }
-
 function fmtTime(t) {
-  if (!t) return "";
-  return t.slice(0, 5);
+  return t ? t.slice(0, 5) : "";
 }
-
 function greetingByHour() {
   const h = new Date().getHours();
-  if (h < 12) return "Good Morning";
-  if (h < 17) return "Good Afternoon";
-  return "Good Evening";
+  if (h < 12) return "Good morning";
+  if (h < 17) return "Good afternoon";
+  return "Good evening";
 }
 
-function DashboardPage() {
-  const navigate = useNavigate();
-  const [dash, setDash]   = useState(null);
-  const [audit, setAudit] = useState([]);
-  const [error, setError] = useState("");
-  const [ai, setAi]       = useState(null);
-
-  useEffect(() => {
-    getDashboard()
-      .then(setDash)
-      .catch((e) => setError(e.message));
-
-    getAuditLog({ limit: 5 })
-      .then(setAudit)
-      .catch(() => {});
-
-    checkServices()
-      .then((s) => setAi(s?.ai_extraction === "ready"))
-      .catch(() => setAi(false));
-  }, []);
-
-  const todayEvents  = dash?.today_events          ?? [];
-  const openTasks    = dash?.open_tasks             ?? [];
-  const pendingConf  = dash?.pending_confirmations  ?? [];
-  const pendingReply = dash?.pending_replies        ?? [];
-
+// ── small building blocks (token-styled) ──────────────────────
+function Stat({ n, label, onClick, tone }) {
+  const color = tone === "hot" ? "var(--accent)" : tone === "warn" ? "var(--warn)" : "var(--text)";
   return (
-    <>
+    <button
+      onClick={onClick}
+      style={{
+        textAlign: "left", background: "var(--surface)", border: "1px solid var(--border)",
+        borderRadius: "var(--radius)", boxShadow: "var(--shadow)", padding: "22px 24px", cursor: "pointer",
+      }}
+    >
+      <div style={{ fontSize: 38, fontWeight: 680, letterSpacing: "-.5px", color }}>{n}</div>
+      <div style={{ fontSize: 15, color: "var(--muted)", marginTop: 4 }}>{label}</div>
+    </button>
+  );
+}
+
+function Card({ title, count, children }) {
+  return (
+    <section style={{ marginBottom: 28 }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 12, margin: "0 2px 14px" }}>
+        <h2 style={{ margin: 0, fontSize: 19, fontWeight: 650 }}>{title}</h2>
+        {count != null && <span style={{ fontSize: 14, color: "var(--muted)" }}>{count}</span>}
+      </div>
       <div
         style={{
-          position: "absolute",
-          width: "400px",
-          height: "400px",
-          background: "radial-gradient(circle, rgba(96,165,250,0.25), transparent)",
-          filter: "blur(100px)",
-          zIndex: -1,
+          background: "var(--surface)", border: "1px solid var(--border)",
+          borderRadius: "var(--radius)", boxShadow: "var(--shadow)", overflow: "hidden",
         }}
-      />
-
-      <motion.div
-        initial={{ opacity: 0, y: -60 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8 }}
-        style={{ marginBottom: "60px" }}
       >
-        <h1 style={{ fontSize: "64px", fontWeight: "800", margin: 0, lineHeight: 1 }}>
-          {greetingByHour()}
-        </h1>
-        <p style={{ color: "#64748b", fontSize: "18px", marginTop: "16px" }}>
-          {error
-            ? `Could not load dashboard — ${error}`
-            : "Manage meetings, deadlines, notes and documents from a single workspace."}
-        </p>
+        {children}
+      </div>
+    </section>
+  );
+}
 
-        {/* AI status chip */}
+function Row({ children, onClick, last }) {
+  return (
+    <div
+      onClick={onClick}
+      style={{
+        display: "flex", alignItems: "center", gap: 16, padding: "16px 20px",
+        borderBottom: last ? "none" : "1px solid var(--border)",
+        cursor: onClick ? "pointer" : "default",
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+export default function DashboardPage() {
+  const navigate = useNavigate();
+  const [dash, setDash] = useState(null);
+  const [audit, setAudit] = useState([]);
+  const [error, setError] = useState("");
+  const [ai, setAi] = useState(null);
+
+  useEffect(() => {
+    getDashboard().then(setDash).catch((e) => setError(e.message));
+    getAuditLog({ limit: 5 }).then(setAudit).catch(() => {});
+    checkServices().then((s) => setAi(s?.ai_extraction === "ready")).catch(() => setAi(false));
+  }, []);
+
+  const todayEvents  = dash?.today_events         ?? [];
+  const openTasks    = dash?.open_tasks            ?? [];
+  const pendingConf  = dash?.pending_confirmations ?? [];
+  const pendingReply = dash?.pending_replies       ?? [];
+  const v = (arr) => (dash ? arr.length : "…");
+
+  return (
+    <div>
+      {/* Greeting + AI status */}
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ fontSize: 30, fontWeight: 680, margin: 0 }}>{greetingByHour()}</h1>
+        <p style={{ color: "var(--muted)", fontSize: 15.5, margin: "6px 0 0" }}>
+          {error ? `Could not load dashboard — ${error}` : "Here's what needs you today."}
+        </p>
         {ai != null && (
-          <div style={{
-            display: "inline-flex", alignItems: "center", gap: "8px", marginTop: "20px",
-            background: ai ? "#ecfdf5" : "#fef2f2", color: ai ? "#065f46" : "#991b1b",
-            border: `1px solid ${ai ? "#a7f3d0" : "#fecaca"}`,
-            padding: "6px 14px", borderRadius: "99px", fontSize: "13px", fontWeight: 600,
-          }}>
-            <span style={{ width: "8px", height: "8px", borderRadius: "50%",
-              background: ai ? "#10b981" : "#ef4444", display: "inline-block" }} />
+          <div
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 8, marginTop: 14,
+              background: ai ? "var(--ok-soft)" : "var(--warn-soft)",
+              color: ai ? "var(--ok)" : "var(--warn)",
+              padding: "6px 14px", borderRadius: 99, fontSize: 13.5, fontWeight: 600,
+            }}
+          >
+            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "currentColor" }} />
             {ai ? "AI extraction online" : "AI offline — manual entry still works (degraded mode)"}
           </div>
         )}
-      </motion.div>
-
-      {/* Quick actions */}
-      <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", marginBottom: "48px" }}>
-        {QUICK_ACTIONS.map((a) => (
-          <motion.button key={a.to} onClick={() => navigate(a.to)}
-            whileHover={{ y: -3 }} whileTap={{ scale: 0.97 }}
-            style={{
-              display: "flex", alignItems: "center", gap: "10px",
-              background: "white", border: "1px solid #e2e8f0", borderLeft: `3px solid ${a.color}`,
-              padding: "14px 20px", borderRadius: "14px", cursor: "pointer",
-              fontWeight: 600, fontSize: "15px", color: "#1e293b",
-              boxShadow: "0 4px 14px rgba(0,0,0,0.05)",
-            }}>
-            <span style={{ fontSize: "20px" }}>{a.icon}</span>{a.label}
-          </motion.button>
-        ))}
       </div>
 
-      {/* Stat cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "24px", marginBottom: "60px" }}>
-        {[
-          { title: "Events Today",         value: todayEvents.length,  subtitle: "Scheduled today",       delay: 0.2,  to: "/calendar", color: "#2563eb" },
-          { title: "Open Tasks",           value: openTasks.length,    subtitle: "Need attention",        delay: 0.35, to: "/tasks",    color: "#16a34a" },
-          { title: "Pending Confirmations",value: pendingConf.length,  subtitle: "Awaiting your review",  delay: 0.5,  to: "/upload",   color: "#d97706" },
-          { title: "Pending Replies",      value: pendingReply.length, subtitle: "Reply tasks due soon",  delay: 0.65, to: "/tasks",    color: "#dc2626" },
-        ].map(({ title, value, subtitle, delay, to, color }) => (
-          <motion.div
-            key={title}
-            initial={{ opacity: 0, y: 40 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay, duration: 0.6 }}
-            whileHover={{ y: -4, scale: 1.02 }}
-            onClick={() => navigate(to)}
-            style={clickable}
+      {/* Stat row */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 18, marginBottom: 30 }}>
+        <Stat n={v(todayEvents)}  label="Meetings today"        tone="hot"  onClick={() => navigate("/calendar")} />
+        <Stat n={v(openTasks)}    label="Open tasks"                        onClick={() => navigate("/tasks")} />
+        <Stat n={v(pendingConf)}  label="Awaiting confirmation"            onClick={() => navigate("/inbox")} />
+        <Stat n={v(pendingReply)} label="Pending replies"       tone="warn" onClick={() => navigate("/tasks")} />
+      </div>
+
+      {/* Quick actions */}
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 30 }}>
+        {QUICK_ACTIONS.map((a) => (
+          <button
+            key={a.to}
+            onClick={() => navigate(a.to)}
+            style={{
+              display: "flex", alignItems: "center", gap: 10, background: "var(--surface)",
+              border: "1px solid var(--border)", padding: "12px 18px", borderRadius: "var(--radius-sm)",
+              cursor: "pointer", fontWeight: 600, fontSize: 15, color: "var(--text)", boxShadow: "var(--shadow)",
+            }}
           >
-            <StatCard title={title} value={dash ? value : "…"} subtitle={subtitle} color={color} />
-          </motion.div>
+            <span style={{ fontSize: 19 }}>{a.icon}</span>
+            {a.label}
+          </button>
         ))}
       </div>
 
       {/* Today's schedule */}
-      <div
-        style={{
-          background: "rgba(255,255,255,0.7)",
-          backdropFilter: "blur(10px)",
-          borderRadius: "24px",
-          padding: "24px",
-          marginBottom: "40px",
-        }}
-      >
-        <h2 style={{ marginTop: 0, marginBottom: "24px" }}>Today's Schedule</h2>
+      <Card title="Today's schedule" count={`${todayEvents.length} event${todayEvents.length === 1 ? "" : "s"}`}>
         {todayEvents.length === 0 ? (
-          <p style={{ color: "#94a3b8" }}>No events scheduled for today.</p>
+          <Row last><span style={{ color: "var(--muted)" }}>No events scheduled for today.</span></Row>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-            {todayEvents.map((ev) => (
-              <motion.div
-                key={ev.id}
-                whileHover={{ x: 4 }}
-                onClick={() => navigate("/calendar")}
-                title="Open in Calendar"
+          todayEvents.map((ev, i) => (
+            <Row key={ev.id} onClick={() => navigate("/calendar")} last={i === todayEvents.length - 1}>
+              <div style={{ fontSize: 16, fontWeight: 600, color: "var(--text-2)", width: 72 }}>
+                {fmtTime(ev.event_time) || "—"}
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 16.5, fontWeight: 580 }}>{ev.title}</div>
+                {ev.venue && <div style={{ fontSize: 14, color: "var(--muted)", marginTop: 2 }}>{ev.venue}</div>}
+              </div>
+              <span
                 style={{
-                  background: "rgba(255,255,255,0.6)",
-                  backdropFilter: "blur(10px)",
-                  padding: "20px",
-                  borderRadius: "18px",
-                  boxShadow: "0 4px 16px rgba(0,0,0,0.06)",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  cursor: "pointer",
+                  marginLeft: "auto", fontSize: 13, fontWeight: 600, padding: "4px 12px", borderRadius: 99,
+                  background: "var(--accent-soft)", color: "var(--accent)",
                 }}
               >
-                <div>
-                  <h3 style={{ margin: 0, marginBottom: "6px" }}>{ev.title}</h3>
-                  {ev.venue && <p style={{ margin: 0, color: "#64748b", fontSize: "14px" }}>{ev.venue}</p>}
-                </div>
-                <div style={{ textAlign: "right" }}>
-                  {ev.event_time && (
-                    <p style={{ margin: 0, color: "#2563eb", fontWeight: 600 }}>{fmtTime(ev.event_time)}</p>
-                  )}
-                  <span
-                    style={{
-                      fontSize: "12px",
-                      background: ev.source === "manual" ? "#f0fdf4" : "#eff6ff",
-                      color: ev.source === "manual" ? "#16a34a" : "#2563eb",
-                      padding: "3px 10px",
-                      borderRadius: "99px",
-                    }}
-                  >
-                    {ev.source}
-                  </span>
-                </div>
-              </motion.div>
-            ))}
-          </div>
+                {ev.source === "manual" ? "Manual" : "Meeting"}
+              </span>
+            </Row>
+          ))
         )}
-      </div>
+      </Card>
 
       {/* Open tasks */}
       {openTasks.length > 0 && (
-        <div
-          style={{
-            background: "rgba(255,255,255,0.7)",
-            backdropFilter: "blur(10px)",
-            borderRadius: "24px",
-            padding: "24px",
-            marginBottom: "40px",
-          }}
-        >
-          <h2 style={{ marginTop: 0, marginBottom: "20px" }}>Open Tasks</h2>
-          <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-            {openTasks.slice(0, 5).map((t) => (
-              <motion.div
-                key={t.id}
-                whileHover={{ x: 4 }}
-                onClick={() => navigate("/tasks")}
-                title="Open in Tasks"
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  padding: "14px 18px",
-                  borderRadius: "14px",
-                  background: "#f8fafc",
-                  border: "1px solid #e2e8f0",
-                  cursor: "pointer",
-                }}
-              >
-                <span style={{ fontWeight: 500 }}>{t.title}</span>
-                <span style={{ color: "#94a3b8", fontSize: "13px" }}>
-                  {t.due_date ? `Due ${fmtDate(t.due_date)}` : "No due date"}
-                </span>
-              </motion.div>
-            ))}
-          </div>
-        </div>
+        <Card title="Open tasks" count={`showing ${Math.min(5, openTasks.length)} of ${openTasks.length}`}>
+          {openTasks.slice(0, 5).map((t, i, arr) => (
+            <Row key={t.id} onClick={() => navigate("/tasks")} last={i === arr.length - 1}>
+              <span style={{ fontSize: 16.5, fontWeight: 550 }}>{t.title}</span>
+              <span style={{ marginLeft: "auto", color: "var(--muted)", fontSize: 14 }}>
+                {t.due_date ? `Due ${fmtDate(t.due_date)}` : "No due date"}
+              </span>
+            </Row>
+          ))}
+        </Card>
       )}
 
-      {/* Pending confirmations */}
+      {/* Pending confirmations → Inbox */}
       {pendingConf.length > 0 && (
-        <div
-          style={{
-            background: "rgba(254,243,199,0.7)",
-            backdropFilter: "blur(10px)",
-            borderRadius: "24px",
-            padding: "24px",
-            marginBottom: "40px",
-            border: "1px solid #fde68a",
-          }}
-        >
-          <h2 style={{ marginTop: 0, marginBottom: "16px", color: "#92400e" }}>
-            Pending AI Extractions — Needs Review
-          </h2>
-          {pendingConf.map((item) => (
-            <motion.div
-              key={item.job_id}
-              whileHover={{ x: 4 }}
-              onClick={() => navigate("/upload")}
-              title="Review on Upload page"
-              style={{ color: "#78350f", fontSize: "14px", marginBottom: "8px", cursor: "pointer" }}
-            >
-              <strong>{item.filename}</strong> — uploaded {fmtDate(item.uploaded_at)}
-              {item.extraction_count > 0 && ` — ${item.extraction_count} item(s) to confirm`}
-            </motion.div>
+        <Card title="Awaiting your confirmation" count={`${pendingConf.length} document(s)`}>
+          {pendingConf.map((item, i, arr) => (
+            <Row key={item.job_id} onClick={() => navigate(`/confirm/${item.job_id}`)} last={i === arr.length - 1}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 16, fontWeight: 580 }}>{item.filename}</div>
+                <div style={{ fontSize: 13.5, color: "var(--muted)", marginTop: 2 }}>
+                  Uploaded {fmtDate(item.uploaded_at)}
+                  {item.extraction_count > 0 && ` · ${item.extraction_count} item(s) to confirm`}
+                </div>
+              </div>
+              <span style={{ marginLeft: "auto", color: "var(--accent)", fontWeight: 600, fontSize: 15 }}>Review →</span>
+            </Row>
           ))}
-          <p style={{ color: "#92400e", fontSize: "13px", marginTop: "12px", marginBottom: 0 }}>
-            Go to <strong>Upload</strong> page to review and confirm.
-          </p>
-        </div>
+        </Card>
       )}
 
       {/* Recent activity */}
-      <motion.div
-        initial={{ opacity: 0, y: 60 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true }}
-        transition={{ duration: 0.8 }}
-        style={{ marginBottom: "80px" }}
-      >
-        <h2 style={{ fontSize: "28px", marginBottom: "20px" }}>Recent Activity</h2>
-        <div
-          style={{
-            background: "rgba(255,255,255,0.7)",
-            backdropFilter: "blur(10px)",
-            borderRadius: "24px",
-            padding: "24px",
-            boxShadow: "0 10px 30px rgba(0,0,0,0.06)",
-          }}
-        >
-          {audit.length === 0 ? (
-            <p style={{ color: "#94a3b8" }}>No activity yet. Upload a document to get started.</p>
-          ) : (
-            audit.map((entry) => (
-              <p key={entry.id} style={{ margin: "0 0 10px", color: "#475569" }}>
-                <strong style={{ color: "#2563eb" }}>{entry.action}</strong>{" "}
-                {entry.entity_type} #{entry.entity_id}
-                {entry.detail ? ` — ${entry.detail}` : ""}
-                <span style={{ float: "right", color: "#94a3b8", fontSize: "12px" }}>
-                  {fmtDate(entry.created_at)}
+      <Card title="Recent activity">
+        {audit.length === 0 ? (
+          <Row last><span style={{ color: "var(--muted)" }}>No activity yet. Capture a document to get started.</span></Row>
+        ) : (
+          audit.map((entry, i, arr) => (
+            <Row key={entry.id} last={i === arr.length - 1}>
+              <div style={{ minWidth: 0 }}>
+                <span style={{ color: "var(--accent)", fontWeight: 600 }}>{entry.action}</span>{" "}
+                <span style={{ color: "var(--text-2)" }}>
+                  {entry.entity_type} #{entry.entity_id}
+                  {entry.detail ? ` — ${entry.detail}` : ""}
                 </span>
-              </p>
-            ))
-          )}
-        </div>
-      </motion.div>
-    </>
+              </div>
+              <span style={{ marginLeft: "auto", color: "var(--muted)", fontSize: 13 }}>{fmtDate(entry.created_at)}</span>
+            </Row>
+          ))
+        )}
+      </Card>
+    </div>
   );
 }
-
-export default DashboardPage;
