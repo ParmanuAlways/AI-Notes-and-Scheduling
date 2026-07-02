@@ -42,15 +42,19 @@ def resolve_model() -> str:
     return _resolved_model
 
 
-def _chat(prompt: str, temperature: float, max_tokens: int, want_json: bool) -> str:
+def _build_body(messages: list, temperature: float, max_tokens: int, want_json: bool) -> dict:
     body = {
         "model": resolve_model(),
-        "messages": [{"role": "user", "content": prompt}],
+        "messages": messages,
         "temperature": temperature,
         "max_tokens": max_tokens,
     }
     if want_json and LLM_JSON_MODE:
         body["response_format"] = {"type": "json_object"}
+    return body
+
+
+def _post(body: dict) -> str:
     r = httpx.post(f"{LLM_BASE_URL}/chat/completions", json=body,
                    headers=auth_headers(), timeout=300)
     # Some servers reject response_format — drop it and retry once.
@@ -62,9 +66,29 @@ def _chat(prompt: str, temperature: float, max_tokens: int, want_json: bool) -> 
     return r.json()["choices"][0]["message"].get("content") or ""
 
 
+def _chat(prompt: str, temperature: float, max_tokens: int, want_json: bool) -> str:
+    messages = [{"role": "user", "content": prompt}]
+    return _post(_build_body(messages, temperature, max_tokens, want_json))
+
+
+def _chat_vision(prompt: str, images: list, temperature: float,
+                 max_tokens: int, want_json: bool) -> str:
+    """Multimodal chat: a text prompt plus one or more image data-URIs, sent as
+    the OpenAI vision `content` array (works with vLLM VLMs and cloud vision APIs)."""
+    content = [{"type": "text", "text": prompt}]
+    content += [{"type": "image_url", "image_url": {"url": u}} for u in images]
+    messages = [{"role": "user", "content": content}]
+    return _post(_build_body(messages, temperature, max_tokens, want_json))
+
+
 def generate_json(prompt: str, max_tokens: int = 512) -> str:
     """Deterministic JSON answer (temperature 0)."""
     return _chat(prompt, temperature=0, max_tokens=max_tokens, want_json=True)
+
+
+def generate_json_vision(prompt: str, images: list, max_tokens: int = 512) -> str:
+    """Deterministic JSON answer from image input (vision extraction)."""
+    return _chat_vision(prompt, images, temperature=0, max_tokens=max_tokens, want_json=True)
 
 
 def generate_text(prompt: str, temperature: float = 0.2, max_tokens: int = 1024) -> str:

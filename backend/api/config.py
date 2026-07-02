@@ -78,6 +78,27 @@ CONFIDENCE_THRESHOLD = float(os.getenv("CONFIDENCE_THRESHOLD", "0.7"))  # FR-10/
 # FR-4 scan-quality floor: fewer readable chars than this → treat as unreadable
 MIN_READABLE_CHARS   = int(os.getenv("MIN_READABLE_CHARS", "25"))
 
+# ── Vision extraction (multimodal VLM) ───────────────────────
+# Send the page IMAGE to the VLM instead of only OCR'd text. Dramatically better
+# on scans and especially handwriting, which classic OCR (EasyOCR) reads poorly.
+# The model behind LLM_BASE_URL/LLM_MODEL must be vision-capable — e.g. a cloud
+# vision API for dev, or a local vLLM serving Gemma 3 / Qwen2.5-VL in air-gap.
+#   auto = use vision only when it helps — always for image uploads, and for PDFs
+#          whose text layer is too thin to trust (scans/handwriting); digital PDFs
+#          with a real text layer stay on the fast, cheap text path
+#   on   = always use vision (highest accuracy, more tokens / slower)
+#   off  = never use vision (original OCR-text-only behaviour)
+VISION_MODE = os.getenv("VISION_MODE", "auto").lower()
+# Cap how many pages are rendered and sent to the VLM (cost / latency guard).
+VISION_MAX_PAGES = int(os.getenv("VISION_MAX_PAGES", "3"))
+# Longest edge (px) each page image is downscaled to before sending. Smaller =
+# fewer vision tokens (cheaper/faster); larger = finer detail for tiny handwriting.
+VISION_IMAGE_MAX_PX = int(os.getenv("VISION_IMAGE_MAX_PX", "1600"))
+# In 'auto' mode, a PDF whose parsed text is shorter than this (chars) is treated
+# as a scan/handwriting and routed to vision. Kept above MIN_READABLE_CHARS so a
+# borderline scan goes to vision rather than being rejected as unreadable.
+VISION_AUTO_TEXT_FLOOR = int(os.getenv("VISION_AUTO_TEXT_FLOOR", "180"))
+
 # ── Faster-Whisper STT ────────────────────────────────────────
 # distil-large-v3: English-only, near large-v3 accuracy, ~6x faster. On GPU
 # (cuda/float16) it transcribes a short clip in well under a second once warm.

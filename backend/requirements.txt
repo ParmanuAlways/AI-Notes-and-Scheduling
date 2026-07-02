@@ -21,3 +21,7 @@ redis==5.2.1
 pypdf==5.1.0
 pillow==11.1.0
 pytesseract==0.3.13          # requires Tesseract-OCR installed separately
+# Renders PDF pages to images for the vision-extraction path (api/ai/render.py).
+# Self-contained wheel, no system libs — safe for the air-gapped bundle. Optional:
+# if absent, image uploads still use vision; only PDF->image rendering is skipped.
+PyMuPDF==1.24.10

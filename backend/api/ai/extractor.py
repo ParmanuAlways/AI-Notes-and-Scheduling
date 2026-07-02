@@ -14,18 +14,16 @@ import logging
 from datetime import datetime, date
 
 from api.config import LLM_MODEL
-from api.ai.llm import generate_json, resolve_model
+from api.ai.llm import generate_json, generate_json_vision, resolve_model
 
 log = logging.getLogger(__name__)
 
 FIELDS = ["subject", "event_date", "event_time", "venue", "attendees",
           "ref_number", "deadline", "reply_by"]
 
-_PROMPT = """You are a precise information extractor for official letters, notices, meeting invites and voice notes.
-Today's date is {today}. Resolve relative dates ("tomorrow", "next Friday") to actual calendar dates.
-Read the text below and extract ONLY information that is actually present.
-
-Return a STRICT JSON object with these keys:
+# Shared field schema + rules — identical for the text and vision prompts so both
+# paths produce the same JSON shape and go through the same normaliser.
+_SCHEMA = """Return a STRICT JSON object with these keys:
 - "subject": short title/subject of the letter or meeting, or null
 - "event_date": the meeting/event date as "DD MMM YYYY" (e.g. "09 Jun 2026"), or null
 - "event_time": time as "HH:MM" 24-hour, or null
@@ -41,7 +39,13 @@ Rules:
 - NEVER invent or guess a date. If a date is not clearly written, use null and confidence 0.
 - For relative dates, compute the ACTUAL calendar date from today ({today}). "tomorrow" = today + 1 day; "next Friday" = the first Friday strictly after today.
 - Use null for anything not present. Do not hallucinate.
-- Output JSON only, no commentary.
+- Output JSON only, no commentary."""
+
+_PROMPT = """You are a precise information extractor for official letters, notices, meeting invites and voice notes.
+Today's date is {today}. Resolve relative dates ("tomorrow", "next Friday") to actual calendar dates.
+Read the text below and extract ONLY information that is actually present.
+
+""" + _SCHEMA + """
 
 EXAMPLE
 Input: "Subject: Budget Meeting. Date: 09 Jun 2026 at 10:00 AM, Room 4. Ref AB/12. Reply by 05 Jun 2026."
@@ -52,6 +56,12 @@ DOCUMENT:
 {text}
 \"\"\"
 """
+
+_VISION_PROMPT = """You are a precise information extractor for official letters, notices, meeting invites and HANDWRITTEN notes.
+Today's date is {today}. Resolve relative dates ("tomorrow", "next Friday") to actual calendar dates.
+Carefully READ the attached page image(s) — including any handwriting — and extract ONLY information that is actually present.
+
+""" + _SCHEMA
 
 
 def _model_label() -> str:
@@ -101,17 +111,10 @@ def _safe_json(raw: str) -> dict:
     return None
 
 
-def extract_fields(text: str) -> dict:
-    """Run the model and return a normalised extraction dict ready for the DB."""
-    prompt = _PROMPT.format(text=text[:12000], today=date.today().isoformat())
-    raw = generate_json(prompt)
-    data = _safe_json(raw)
-    if data is None:
-        # one repair attempt — re-prompt for valid JSON only
-        log.warning("Model returned non-JSON; retrying once.")
-        raw = generate_json(prompt + "\n\nReturn ONLY valid JSON, nothing else.")
-        data = _safe_json(raw) or {}
-
+def _normalise(data: dict) -> dict:
+    """Turn a raw model JSON dict into the DB-ready extraction row. Shared by the
+    text and vision paths so both apply the same date parsing + FR-11 sanity flags."""
+    data = data or {}
     conf = data.get("field_confidence") or {}
 
     event_date = _parse_date(data.get("event_date"))
@@ -135,3 +138,29 @@ def extract_fields(text: str) -> dict:
         "field_confidence": {k: float(conf.get(k, 0) or 0) for k in FIELDS},
         "model_name":       _model_label(),
     }
+
+
+def extract_fields(text: str) -> dict:
+    """Run the model on OCR/parsed text and return a normalised extraction dict."""
+    prompt = _PROMPT.format(text=text[:12000], today=date.today().isoformat())
+    raw = generate_json(prompt)
+    data = _safe_json(raw)
+    if data is None:
+        # one repair attempt — re-prompt for valid JSON only
+        log.warning("Model returned non-JSON; retrying once.")
+        raw = generate_json(prompt + "\n\nReturn ONLY valid JSON, nothing else.")
+        data = _safe_json(raw) or {}
+    return _normalise(data)
+
+
+def extract_fields_from_images(images: list) -> dict:
+    """Run the vision model directly on page image(s) — used for scans and
+    handwriting, which OCR reads poorly. Same JSON shape as the text path."""
+    prompt = _VISION_PROMPT.format(today=date.today().isoformat())
+    raw = generate_json_vision(prompt, images)
+    data = _safe_json(raw)
+    if data is None:
+        log.warning("Vision model returned non-JSON; retrying once.")
+        raw = generate_json_vision(prompt + "\n\nReturn ONLY valid JSON, nothing else.", images)
+        data = _safe_json(raw) or {}
+    return _normalise(data)
