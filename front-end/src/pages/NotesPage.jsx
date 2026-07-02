@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { getNotes, getNote, createNote, updateNote, deleteNote, getNoteVersions, getNoteVersion, summarizeNote } from "../services/api";
+import { getNotes, getNote, createNote, updateNote, deleteNote, getNoteVersions, getNoteVersion, summarizeNote, scheduleNote, createTask, createEvent } from "../services/api";
 import { fmtDate, fmtDateTime } from "../components/DateInput";
 import RelatedItems from "../components/RelatedItems";
+import { useToast } from "../components/ToastProvider";
 
 const CLASSIFICATIONS = ["General", "Meeting", "Reply", "Review", "Personal", "Restricted", "Confidential"];
 
@@ -18,6 +19,9 @@ export default function NotesPage() {
   const [creating, setCreating]     = useState(false);
   const [newTitle, setNewTitle]     = useState("");
   const [summarizing, setSummarizing] = useState(false);
+  const [actions, setActions]       = useState(null); // proposed tasks/events, or null
+  const [findingActions, setFindingActions] = useState(false);
+  const toast = useToast();
 
   // FR-39 — version history
   const [versions, setVersions]         = useState(null); // array or null (modal closed)
@@ -74,6 +78,36 @@ export default function NotesPage() {
       })
       .catch(() => {})
       .finally(() => setSummarizing(false));
+  }
+
+  async function findActions() {
+    if (!selected) return;
+    setFindingActions(true);
+    setActions(null);
+    try {
+      const r = await scheduleNote(selected.note_id);
+      setActions(r.items || []);
+      if (!r.items?.length) toast.info(r.message || "No tasks or events found.");
+    } catch (e) {
+      toast.error(e.message);
+    } finally {
+      setFindingActions(false);
+    }
+  }
+
+  async function addAction(item, idx) {
+    try {
+      if (item.item_type === "event" && item.date) {
+        await createEvent({ title: item.title, event_date: item.date, event_time: item.time || "", venue: item.venue || "", classification: "General" });
+        toast.success("Added event to your calendar.");
+      } else {
+        await createTask({ title: item.title, due_date: item.date || "", category: "General" });
+        toast.success("Added task.");
+      }
+      setActions((a) => a.filter((_, i) => i !== idx));
+    } catch (e) {
+      toast.error(e.message);
+    }
   }
 
   async function handleCreate() {
@@ -293,6 +327,11 @@ export default function NotesPage() {
                   style={{ background: "var(--surface-2)", color: "var(--text-2)", border: "1px solid var(--border-2)", padding: "8px 14px", borderRadius: "8px", cursor: "pointer" }}>
                   {summarizing ? "Summarizing…" : "✨ Summarize"}
                 </button>
+                <button onClick={findActions} disabled={findingActions}
+                  title="Find tasks & events in this note (local AI)"
+                  style={{ background: "var(--surface-2)", color: "var(--text-2)", border: "1px solid var(--border-2)", padding: "8px 14px", borderRadius: "8px", cursor: "pointer" }}>
+                  {findingActions ? "Finding…" : "✅ Find tasks"}
+                </button>
                 <button onClick={openHistory}
                   style={{ background: "var(--surface-2)", color: "var(--text-2)", border: "1px solid var(--surface-2)", padding: "8px 14px", borderRadius: "8px", cursor: "pointer" }}>
                   History
@@ -329,6 +368,28 @@ export default function NotesPage() {
                     ))}
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Proposed tasks/events found in the note */}
+            {actions && actions.length > 0 && (
+              <div style={{ background: "var(--bg)", border: "1px solid var(--border)", borderRadius: 10, padding: "12px 14px", marginBottom: 14 }}>
+                <p style={{ margin: "0 0 8px", fontWeight: 700, fontSize: 14 }}>Found in this note — add what you need:</p>
+                {actions.map((it, idx) => (
+                  <div key={idx} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: idx < actions.length - 1 ? "1px solid var(--border)" : "none" }}>
+                    <span style={{ background: it.item_type === "event" ? "var(--accent-soft)" : "var(--ok-soft)", color: it.item_type === "event" ? "var(--accent)" : "var(--ok)", fontSize: 11, fontWeight: 700, padding: "2px 9px", borderRadius: 99, textTransform: "uppercase" }}>
+                      {it.item_type}
+                    </span>
+                    <span style={{ flex: 1, minWidth: 0, fontSize: 14 }}>
+                      {it.title}
+                      {it.date && <span style={{ color: "var(--muted)" }}> · {it.date}{it.time ? ` ${it.time}` : ""}</span>}
+                    </span>
+                    <button onClick={() => addAction(it, idx)}
+                      style={{ background: "var(--accent)", color: "#fff", border: "none", padding: "6px 14px", borderRadius: 8, cursor: "pointer", fontWeight: 600, fontSize: 13 }}>
+                      Add
+                    </button>
+                  </div>
+                ))}
               </div>
             )}
 

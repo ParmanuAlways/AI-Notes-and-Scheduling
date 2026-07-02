@@ -1,8 +1,16 @@
 import { useEffect, useState } from "react";
-import { getTasks, createTask, updateTask, deleteTask } from "../services/api";
+import { getTasks, createTask, updateTask, deleteTask, parseCapture } from "../services/api";
 import DateInput, { fmtDate, toApiDate } from "../components/DateInput";
+import { useToast } from "../components/ToastProvider";
 
 const CATEGORIES = ["General", "Meeting", "Reply", "Review", "Personal", "Restricted", "Confidential"];
+const PRIORITIES = ["Low", "Medium", "High", "Critical"];
+const PRIORITY_CHIP = {
+  Low:      { bg: "var(--surface-2)", fg: "var(--muted)" },
+  Medium:   { bg: "var(--accent-soft)", fg: "var(--accent)" },
+  High:     { bg: "var(--warn-soft)", fg: "var(--warn)" },
+  Critical: { bg: "var(--danger-soft)", fg: "var(--danger)" },
+};
 
 const STATUS_STYLE = {
   open:    { background: "var(--accent-soft)", color: "var(--accent)" },
@@ -26,9 +34,12 @@ export default function TasksPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ title: "", due_date: "", category: "General" });
+  const [form, setForm] = useState({ title: "", due_date: "", category: "General", priority: "Medium", recurrence: "", count: "" });
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
+  const [nl, setNl] = useState("");
+  const [parsing, setParsing] = useState(false);
+  const toast = useToast();
 
   function loadTasks() {
     setLoading(true);
@@ -40,15 +51,47 @@ export default function TasksPage() {
     if (!form.title) { setMsg("Title is required."); return; }
     setSaving(true); setMsg("");
     try {
-      await createTask({ title: form.title, due_date: toApiDate(form.due_date), category: form.category });
-      setMsg("Task saved.");
-      setForm({ title: "", due_date: "", category: "General" });
+      const payload = {
+        title: form.title, due_date: toApiDate(form.due_date),
+        category: form.category, priority: form.priority,
+      };
+      if (form.recurrence) {
+        payload.recurrence = form.recurrence;
+        payload.count = Number(form.count) || 4;
+      }
+      const r = await createTask(payload);
+      setMsg(r.created > 1 ? `Saved ${r.created} tasks.` : "Task saved.");
+      setForm({ title: "", due_date: "", category: "General", priority: "Medium", recurrence: "", count: "" });
       setShowForm(false);
       loadTasks();
     } catch (e) {
       setMsg(`Error: ${e.message}`);
     } finally {
       setSaving(false);
+    }
+  }
+
+  // Natural-language quick capture: parse the line, then open the form prefilled
+  // so the user confirms before saving.
+  async function handleParse() {
+    if (!nl.trim()) return;
+    setParsing(true);
+    try {
+      const it = await parseCapture(nl.trim());
+      setForm({
+        title: it.title || nl.trim(),
+        due_date: it.date || "",
+        category: "General",
+        priority: it.priority || "Medium",
+        recurrence: "", count: "",
+      });
+      setShowForm(true);
+      setNl("");
+      toast.info("Parsed — review and save.");
+    } catch (e) {
+      toast.error(e.message);
+    } finally {
+      setParsing(false);
     }
   }
 
@@ -126,13 +169,28 @@ export default function TasksPage() {
         })}
       </div>
 
+      {/* Natural-language quick capture */}
+      <div style={{ ...card, padding: 14, marginBottom: 16, display: "flex", gap: 10, alignItems: "center" }}>
+        <span style={{ fontSize: 18 }}>⚡</span>
+        <input
+          value={nl}
+          onChange={(e) => setNl(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && handleParse()}
+          placeholder='Quick add — e.g. "pay electricity bill next Tuesday, high priority"'
+          style={{ ...inputStyle, flex: 1 }}
+        />
+        <button onClick={handleParse} disabled={parsing || !nl.trim()} style={btn(true)}>
+          {parsing ? "Parsing…" : "Parse"}
+        </button>
+      </div>
+
       {/* Create task */}
       <div style={{ marginBottom: 22 }}>
         <button onClick={() => { setShowForm((v) => !v); setMsg(""); }} style={btn(true)}>+ New task</button>
         {showForm && (
           <div style={{ ...card, padding: 20, marginTop: 14 }}>
             <h3 style={{ margin: "0 0 14px", fontSize: 17 }}>New task</h3>
-            <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 12, marginBottom: 14 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr", gap: 12, marginBottom: 14 }}>
               <div>
                 <label style={labelStyle}>Title *</label>
                 <input type="text" placeholder="Task title" value={form.title}
@@ -140,11 +198,35 @@ export default function TasksPage() {
               </div>
               <DateInput label="Due date" value={form.due_date} onChange={(v) => setForm((f) => ({ ...f, due_date: v }))} />
               <div>
+                <label style={labelStyle}>Priority</label>
+                <select value={form.priority} onChange={(e) => setForm((f) => ({ ...f, priority: e.target.value }))} style={inputStyle}>
+                  {PRIORITIES.map((p) => <option key={p}>{p}</option>)}
+                </select>
+              </div>
+              <div>
                 <label style={labelStyle}>Category</label>
                 <select value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))} style={inputStyle}>
                   {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
                 </select>
               </div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 2fr", gap: 12, marginBottom: 14 }}>
+              <div>
+                <label style={labelStyle}>Repeat</label>
+                <select value={form.recurrence} onChange={(e) => setForm((f) => ({ ...f, recurrence: e.target.value }))} style={inputStyle}>
+                  <option value="">Does not repeat</option>
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
+                </select>
+              </div>
+              {form.recurrence && (
+                <div>
+                  <label style={labelStyle}># times</label>
+                  <input type="number" min="1" max="60" value={form.count} placeholder="4"
+                    onChange={(e) => setForm((f) => ({ ...f, count: e.target.value }))} style={inputStyle} />
+                </div>
+              )}
             </div>
             <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
               <button onClick={handleCreate} disabled={saving} style={btn(true)}>{saving ? "Saving…" : "Save task"}</button>
@@ -181,6 +263,11 @@ export default function TasksPage() {
                 {task.title}
               </h3>
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap", fontSize: 13, alignItems: "center" }}>
+                {task.priority && task.priority !== "Medium" && PRIORITY_CHIP[task.priority] && (
+                  <span style={{ ...PRIORITY_CHIP[task.priority], padding: "2px 9px", borderRadius: 99, fontWeight: 700 }}>
+                    {task.priority}
+                  </span>
+                )}
                 {task.due_date && <span style={{ color: "var(--muted)" }}>Due {fmtDate(task.due_date)}</span>}
                 {task.classification && (
                   <span style={{ background: "var(--surface-2)", color: "var(--text-2)", padding: "2px 9px", borderRadius: 99, fontWeight: 600 }}>

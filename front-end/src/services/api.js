@@ -101,6 +101,13 @@ export const setLetterStatus = (id, status) =>
 // Connections / backlinks for any item (document | note | event | task)
 export const getConnections = (kind, id) =>
   req("GET", `/connections/${kind}/${id}`);
+// Reply-draft assistant (local LLM) → { draft, ref_number }
+export const draftReply = (id) => req("POST", `/documents/${id}/draft-reply`);
+// Correspondence register (all letters with ref/status/dates)
+export const getRegister = () =>
+  req("GET", "/documents/register").then((r) => r.register || []);
+// Natural-language quick capture → parsed single item
+export const parseCapture = (text) => req("POST", "/tasks/parse", { text });
 
 // FR-27 — open the original document (returns a URL for <a>/<img>)
 export const documentDownloadUrl = (id) => `${BASE}/documents/${id}/download`;

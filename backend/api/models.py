@@ -58,6 +58,10 @@ class ManualTask(BaseModel):
     due_date : Optional[str] = ""
     priority : Optional[str] = "Medium"
     category : Optional[str] = "General"
+    # Optional recurrence — spawns repeated task instances (no series table).
+    recurrence : Optional[str] = None    # daily | weekly | monthly
+    interval   : Optional[int] = 1
+    count      : Optional[int] = None    # number of occurrences (including the first)
 
 
 class EventUpdate(BaseModel):

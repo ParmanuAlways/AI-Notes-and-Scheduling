@@ -223,6 +223,61 @@ def list_documents(user: CurrentUser = Depends(current_user)):
         conn.close()
 
 
+@router.get("/documents/register")
+def correspondence_register(user: CurrentUser = Depends(current_user)):
+    """A correspondence register: every letter with its reference number, status,
+    dates and reply-by — for review and CSV/print export. Declared before the
+    /documents/{id} routes so 'register' isn't parsed as an id."""
+    conn = get_db()
+    cur = conn.cursor()
+    try:
+        cur.execute("""
+            SELECT d.id, d.filename, d.ref_number, d.letter_status,
+                   d.classification, d.uploaded_at,
+                   (SELECT MIN(e.reply_by) FROM extractions e
+                    WHERE e.source_type = 'document' AND e.source_id = d.id
+                      AND e.reply_by IS NOT NULL) AS reply_by
+            FROM documents d
+            WHERE d.deleted_at IS NULL AND d.users_id = %s
+            ORDER BY d.uploaded_at DESC
+        """, (user["id"],))
+        rows = cur.fetchall()
+    finally:
+        cur.close()
+        conn.close()
+    return {"register": [{
+        "id": r["id"], "filename": r["filename"], "ref_number": r["ref_number"],
+        "letter_status": r["letter_status"], "classification": r["classification"],
+        "uploaded_at": r["uploaded_at"].isoformat() if r["uploaded_at"] else None,
+        "reply_by": r["reply_by"].isoformat() if r["reply_by"] else None,
+    } for r in rows]}
+
+
+@router.post("/documents/{doc_id}/draft-reply")
+def draft_reply_endpoint(doc_id: int, user: CurrentUser = Depends(current_user)):
+    """Draft a reply to a letter with the local LLM (air-gapped). Returns editable
+    text; the frontend lets the user save it as a note."""
+    conn = get_db()
+    cur = conn.cursor()
+    try:
+        cur.execute("SELECT full_text, ref_number FROM documents "
+                    "WHERE id = %s AND users_id = %s AND deleted_at IS NULL", (doc_id, user["id"]))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, "Document not found.")
+    finally:
+        cur.close()
+        conn.close()
+    if not (row["full_text"] or "").strip():
+        raise HTTPException(400, "This document has no readable text to reply to.")
+    from api.ai.generate import draft_reply
+    try:
+        draft = draft_reply(row["full_text"], row["ref_number"])
+    except RuntimeError as e:
+        raise HTTPException(503, str(e))
+    return {"doc_id": doc_id, "draft": draft, "ref_number": row["ref_number"]}
+
+
 @router.post("/documents/{doc_id}/reextract")
 def reextract_document(doc_id: int, background_tasks: BackgroundTasks,
                        user: CurrentUser = Depends(current_user)):

@@ -388,16 +388,22 @@ def summarize_note(note_id: int, user: CurrentUser = Depends(current_user)):
 
 @router.post("/notes/{note_id}/schedule")
 def schedule_note(note_id: int, user: CurrentUser = Depends(current_user)):
-    """Q4 — convert note into task/event via LLM extraction (AI not yet wired)."""
+    """Extract the tasks/events implied by a note (local LLM), for the user to
+    review and add. Nothing is saved here — the frontend confirms each item."""
     conn = get_db()
     cur = conn.cursor()
+    content = ""
     try:
         _assert_owned(cur, note_id, user["id"])
+        path = _note_path(note_id)
+        if os.path.exists(path):
+            with open(path, "r", encoding="utf-8") as f:
+                content = f.read()
     finally:
         cur.close()
         conn.close()
-    return {
-        "job_id"     : "",
-        "extractions": [],
-        "message"    : "AI extraction not yet configured. Use manual event/task creation.",
-    }
+
+    from api.ai.generate import extract_actions
+    items = extract_actions(content)
+    return {"note_id": note_id, "items": items,
+            "message": "" if items else "No tasks or events found in this note."}

@@ -10,10 +10,16 @@ import {
   checkServices,
   reextractDocument,
   setLetterStatus,
+  draftReply,
+  getRegister,
+  createNote,
 } from "../services/api";
 import { fmtDate, fmtDateTime } from "../components/DateInput";
 import { useToast } from "../components/ToastProvider";
 import Connections from "../components/Connections";
+
+const csvCell = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+const esc = (s) => String(s ?? "").replace(/[<>&]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c]));
 
 // Correspondence lifecycle badge colours.
 const LETTER_CHIP = {
@@ -49,6 +55,8 @@ export default function UploadPage() {
   const [history, setHistory] = useState(null);
   const [awaitingOnly, setAwaitingOnly] = useState(false);
   const [connDoc, setConnDoc] = useState(null); // document whose connections modal is open
+  const [draft, setDraft] = useState(null);     // { docId, filename, text, loading }
+  const [register, setRegister] = useState(null); // rows array, or null (closed)
 
   function loadData() {
     getDocuments().then(setDocuments).catch(() => {});
@@ -109,6 +117,54 @@ export default function UploadPage() {
       toast.info("Re-extraction started — watch the Inbox.");
       setTimeout(loadData, 1500);
     } catch (e) { toast.error(e.message); }
+  }
+
+  function openDraft(doc) {
+    setDraft({ docId: doc.id, filename: doc.filename, text: "", loading: true });
+    draftReply(doc.id)
+      .then((r) => setDraft((d) => (d ? { ...d, text: r.draft, loading: false } : d)))
+      .catch((e) => { toast.error(e.message); setDraft(null); });
+  }
+
+  async function saveDraftAsNote() {
+    try {
+      await createNote({ title: `Reply: ${draft.filename}`, content: draft.text, classification: "General" });
+      toast.success("Saved reply as a note.");
+      setDraft(null);
+    } catch (e) { toast.error(e.message); }
+  }
+
+  function openRegister() {
+    setRegister([]);
+    getRegister().then(setRegister).catch((e) => { toast.error(e.message); setRegister(null); });
+  }
+
+  function exportCSV(rows) {
+    const header = ["Reference", "File", "Status", "Uploaded", "Reply by", "Classification"];
+    const lines = [header.join(",")].concat(rows.map((r) =>
+      [r.ref_number, r.filename, r.letter_status, r.uploaded_at, r.reply_by, r.classification].map(csvCell).join(",")));
+    const blob = new Blob([lines.join("\n")], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "correspondence-register.csv"; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function printRegister(rows) {
+    const w = window.open("", "_blank");
+    if (!w) { toast.error("Allow pop-ups to print the register."); return; }
+    const body = rows.map((r) => `<tr><td>${esc(r.ref_number) || "—"}</td><td>${esc(r.filename)}</td>` +
+      `<td>${esc(r.letter_status)}</td><td>${esc(fmtDate(r.uploaded_at))}</td>` +
+      `<td>${r.reply_by ? esc(fmtDate(r.reply_by)) : "—"}</td></tr>`).join("");
+    w.document.write(`<html><head><title>Correspondence Register</title>
+      <style>body{font-family:sans-serif;padding:24px}h1{font-size:20px}
+      table{border-collapse:collapse;width:100%;font-size:13px}
+      th,td{border:1px solid #ccc;padding:6px 10px;text-align:left}
+      th{background:#f3f1ea}</style></head><body>
+      <h1>Correspondence Register</h1>
+      <table><thead><tr><th>Reference</th><th>File</th><th>Status</th><th>Uploaded</th><th>Reply by</th></tr></thead>
+      <tbody>${body}</tbody></table></body></html>`);
+    w.document.close(); w.focus(); w.print();
   }
 
   async function handleLetterStatus(id, status) {
@@ -241,10 +297,14 @@ export default function UploadPage() {
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "0 0 14px" }}>
             <h2 style={{ margin: 0, fontSize: 19 }}>Your documents</h2>
+            <button onClick={openRegister}
+              style={{ marginLeft: "auto", ...btn(false), padding: "6px 14px", fontSize: 13.5, borderRadius: 99 }}>
+              📋 Register
+            </button>
             <button
               onClick={() => setAwaitingOnly((v) => !v)}
               style={{
-                marginLeft: "auto", border: "1px solid var(--border-2)", cursor: "pointer",
+                border: "1px solid var(--border-2)", cursor: "pointer",
                 padding: "6px 14px", borderRadius: 99, fontSize: 13.5, fontWeight: 600,
                 background: awaitingOnly ? "var(--warn-soft)" : "var(--surface)",
                 color: awaitingOnly ? "var(--warn)" : "var(--text-2)",
@@ -289,6 +349,11 @@ export default function UploadPage() {
                       {doc.status}
                     </span>
                     <button onClick={() => setConnDoc(doc)} style={{ ...btn(false), padding: "6px 12px", fontSize: 13 }}>Links</button>
+                    <button onClick={() => openDraft(doc)} disabled={aiStatus !== "ready"}
+                      title={aiStatus === "ready" ? "Draft a reply (local AI)" : "AI offline"}
+                      style={{ ...btn(false), padding: "6px 12px", fontSize: 13, opacity: aiStatus === "ready" ? 1 : 0.5, cursor: aiStatus === "ready" ? "pointer" : "not-allowed" }}>
+                      Draft reply
+                    </button>
                     <a href={documentDownloadUrl(doc.id)} target="_blank" rel="noreferrer" style={{ ...btn(false), padding: "6px 12px", fontSize: 13, textDecoration: "none" }}>Open</a>
                     <button onClick={() => handleReextract(doc.id)} disabled={aiStatus !== "ready"}
                       title={aiStatus === "ready" ? "Re-run AI extraction" : "AI offline"}
@@ -358,6 +423,86 @@ export default function UploadPage() {
             <p style={{ color: "var(--muted)", fontSize: 13 }}>
               Nothing here yet means this letter isn't linked to other items.
             </p>
+          </div>
+        </div>
+      )}
+
+      {/* Reply-draft modal */}
+      {draft && (
+        <div onClick={() => setDraft(null)}
+          style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.5)",
+            display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div onClick={(e) => e.stopPropagation()}
+            style={{ ...cardStyle, padding: 26, width: "100%", maxWidth: 640, maxHeight: "85vh", overflowY: "auto" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <h3 style={{ margin: 0 }}>Draft reply — {draft.filename}</h3>
+              <button onClick={() => setDraft(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", fontSize: 22 }}>×</button>
+            </div>
+            {draft.loading ? (
+              <p style={{ color: "var(--muted)" }}>Drafting a reply with the local model…</p>
+            ) : (
+              <>
+                <textarea value={draft.text} onChange={(e) => setDraft((d) => ({ ...d, text: e.target.value }))}
+                  style={{ width: "100%", minHeight: 260, padding: 14, borderRadius: 10, border: "1px solid var(--border)", fontSize: 15, lineHeight: 1.6, boxSizing: "border-box", resize: "vertical", background: "var(--bg)", color: "var(--text)" }} />
+                <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
+                  <button onClick={saveDraftAsNote} style={{ ...btn(true) }}>Save as note</button>
+                  <button onClick={() => { navigator.clipboard?.writeText(draft.text); toast.info("Copied."); }} style={{ ...btn(false) }}>Copy</button>
+                </div>
+                <p style={{ color: "var(--muted)", fontSize: 12.5, marginTop: 10 }}>
+                  AI-drafted from the letter. Review and edit before sending — nothing is sent automatically.
+                </p>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Correspondence register modal */}
+      {register && (
+        <div onClick={() => setRegister(null)}
+          style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.5)",
+            display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div onClick={(e) => e.stopPropagation()}
+            style={{ ...cardStyle, padding: 24, width: "100%", maxWidth: 860, maxHeight: "85vh", overflowY: "auto" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
+              <h3 style={{ margin: 0 }}>Correspondence register</h3>
+              <span style={{ color: "var(--muted)", fontSize: 13.5 }}>{register.length} letter(s)</span>
+              <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+                <button onClick={() => exportCSV(register)} style={{ ...btn(false), padding: "7px 14px", fontSize: 13.5 }}>Export CSV</button>
+                <button onClick={() => printRegister(register)} style={{ ...btn(false), padding: "7px 14px", fontSize: 13.5 }}>Print</button>
+                <button onClick={() => setRegister(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", fontSize: 22 }}>×</button>
+              </div>
+            </div>
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
+                <thead>
+                  <tr style={{ textAlign: "left", color: "var(--muted)" }}>
+                    {["Reference", "File", "Status", "Uploaded", "Reply by"].map((h) => (
+                      <th key={h} style={{ padding: "8px 10px", borderBottom: "1px solid var(--border)", fontSize: 12.5, textTransform: "uppercase", letterSpacing: ".4px" }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {register.map((r) => {
+                    const ls = LETTER_CHIP[r.letter_status || "open"];
+                    return (
+                      <tr key={r.id}>
+                        <td style={{ padding: "10px", borderBottom: "1px solid var(--border)" }}>{r.ref_number || "—"}</td>
+                        <td style={{ padding: "10px", borderBottom: "1px solid var(--border)" }}>{r.filename}</td>
+                        <td style={{ padding: "10px", borderBottom: "1px solid var(--border)" }}>
+                          <span style={{ background: ls.bg, color: ls.fg, padding: "2px 10px", borderRadius: 99, fontSize: 12.5, fontWeight: 700 }}>{ls.label}</span>
+                        </td>
+                        <td style={{ padding: "10px", borderBottom: "1px solid var(--border)", color: "var(--muted)" }}>{fmtDate(r.uploaded_at)}</td>
+                        <td style={{ padding: "10px", borderBottom: "1px solid var(--border)", color: r.reply_by ? "var(--warn)" : "var(--muted)" }}>{r.reply_by ? fmtDate(r.reply_by) : "—"}</td>
+                      </tr>
+                    );
+                  })}
+                  {register.length === 0 && (
+                    <tr><td colSpan={5} style={{ padding: 20, color: "var(--muted)" }}>No letters yet.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}

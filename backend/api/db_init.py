@@ -139,6 +139,8 @@ CREATE TABLE IF NOT EXISTS tasks (
 CREATE INDEX IF NOT EXISTS idx_tasks_owner_due ON tasks(users_id, due_date);
 CREATE INDEX IF NOT EXISTS idx_tasks_status    ON tasks(status);
 CREATE INDEX IF NOT EXISTS idx_tasks_reply_due ON tasks(is_reply_task, due_date) WHERE is_reply_task = TRUE;
+-- Task priority (Low / Medium / High / Critical); nullable, defaults Medium.
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS priority TEXT DEFAULT 'Medium';
 
 CREATE TABLE IF NOT EXISTS notes (
     id                 SERIAL PRIMARY KEY,
