@@ -3,6 +3,7 @@ import BackgroundBlobs from "./BackgroundBlobs";
 import NotificationManager from "./NotificationManager";
 import BackendStatus from "./BackendStatus";
 import UserMenu from "./UserMenu";
+import ThemeControls from "./ThemeControls";
 
 function AppShell({ children, user }) {
   return (
@@ -10,9 +11,8 @@ function AppShell({ children, user }) {
       style={{
         display: "flex",
         minHeight: "100vh",
-        background:
-          "linear-gradient(to bottom right, #f8fafc, #ffffff)",
-        color: "#0f172a",
+        background: "var(--bg)",
+        color: "var(--text)",
         position: "relative",
       }}
     >
@@ -20,6 +20,12 @@ function AppShell({ children, user }) {
       <NotificationManager />
       <BackendStatus />
       <UserMenu user={user} />
+
+      {/* Text-size + light/dark controls. Sits left of the auth UserMenu when
+          it's present (auth mode), otherwise tucks into the top-right corner. */}
+      <div style={{ position: "fixed", top: 16, right: user ? 240 : 20, zIndex: 60 }}>
+        <ThemeControls />
+      </div>
 
       <Sidebar />
 
