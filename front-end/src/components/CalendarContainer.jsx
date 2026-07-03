@@ -62,6 +62,12 @@ function InnerCalendar({ events, onEventClick, view, isDark }) {
       onEventClick(calendarEvent) {
         if (onEventClick) onEventClick(calendarEvent);
       },
+      // Never collapse to the narrow single-day layout. schedule-x switches
+      // month→day when the container is under ~700px, but at our large default
+      // UI zoom the layout viewport is narrow enough to trip that even on a wide
+      // desktop — which made "Month" silently render a day grid. Desktop-only, so
+      // we always keep the chosen view.
+      isCalendarSmall: () => false,
     },
   });
 

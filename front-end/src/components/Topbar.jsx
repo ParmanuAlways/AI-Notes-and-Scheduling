@@ -40,15 +40,16 @@ export default function Topbar({ user }) {
         display: "flex",
         alignItems: "center",
         gap: 18,
+        flexWrap: "wrap",
         padding: "18px 40px",
         background: "color-mix(in srgb, var(--bg) 82%, transparent)",
         backdropFilter: "blur(8px)",
         borderBottom: "1px solid var(--border)",
       }}
     >
-      <div>
+      <div style={{ flexShrink: 0 }}>
         <h1 style={{ margin: 0, fontSize: 24, fontWeight: 660, color: "var(--text)" }}>{title}</h1>
-        {sub && <div style={{ fontSize: 15, color: "var(--muted)", marginTop: 2 }}>{sub}</div>}
+        {sub && <div style={{ fontSize: 15, color: "var(--muted)", marginTop: 2, whiteSpace: "nowrap" }}>{sub}</div>}
       </div>
       {/* leave room for the fixed auth UserMenu when signed in */}
       <div style={{ marginLeft: "auto", marginRight: user ? 220 : 0 }}>
