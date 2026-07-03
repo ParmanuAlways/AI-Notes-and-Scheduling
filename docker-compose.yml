@@ -28,6 +28,12 @@ services:
       DB_NAME: udaan_db
       DB_USER: postgres
       DB_PASSWORD: "0085"
+      # Voice transcription on CPU (this box has no GPU). A small English model so
+      # short notes transcribe in seconds; first use downloads it (~150 MB) and
+      # then it is cached. Swap to small.en for more accuracy at lower speed.
+      WHISPER_DEVICE: "cpu"
+      WHISPER_COMPUTE_TYPE: "int8"
+      WHISPER_MODEL: "base.en"
     depends_on:
       db:
         condition: service_healthy

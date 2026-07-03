@@ -25,3 +25,9 @@ pytesseract==0.3.13          # requires Tesseract-OCR installed separately
 # Self-contained wheel, no system libs — safe for the air-gapped bundle. Optional:
 # if absent, image uploads still use vision; only PDF->image rendering is skipped.
 PyMuPDF==1.24.10
+
+# ── Voice transcription (Whisper, CPU-capable) ────────────────
+# Runs Whisper locally; falls back to CPU/int8 when there's no GPU, so voice
+# notes transcribe even in a plain container or Codespace. Pulls ctranslate2 and
+# av (ffmpeg bundled in the wheel) — no extra system packages required.
+faster-whisper==1.1.0
